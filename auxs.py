@@ -1,5 +1,6 @@
 
 import os
+import numpy as np
 
 def file_menu(path='',file_ext=''):
     if path:
@@ -11,6 +12,7 @@ def file_menu(path='',file_ext=''):
     while True:
         if mistake:
             print('\ninvalid option')
+            mistake = False
         cwd = os.getcwd()
         print(f'\ncurrent location: {cwd}')
         print(f'current file extension: {file_ext}')
@@ -42,4 +44,37 @@ def file_menu(path='',file_ext=''):
                     os.chdir(os.path.join(cwd,fname))
                 else:
                     return fname
-file_menu()
+
+def deinterleave(stack):
+    ch1 = stack[0::2]
+    ch2 = stack[1::2]
+    return ch1,ch2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#
