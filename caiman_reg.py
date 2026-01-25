@@ -28,14 +28,14 @@ max_shifts = (6, 6)  # maximum allowed rigid shift in pixels (view the movie to 
 strides =  (48, 48)  # create a new patch every x pixels for pw-rigid correction
 overlaps = (24, 24)  # overlap between patches (size of patch strides+overlaps)
 max_deviation_rigid = 3   # maximum deviation allowed for patch with respect to rigid shifts
-pw_rigid = False # flag for performing rigid or piecewise rigid motion correction
+pw_rigid = True    # flag for performing rigid or piecewise rigid motion correction
 shifts_opencv = True  # flag for correcting motion using bicubic interpolation (otherwise FFT interpolation is used)
 border_nan = 'copy'  # replicate values along the boundary (if True, fill in with NaN)
 
 # create a motion correction object
 mc = MotionCorrect(fname, dview=None, max_shifts=max_shifts,
                   strides=strides, overlaps=overlaps,
-                  max_deviation_rigid=max_deviation_rigid, 
+                  max_deviation_rigid=max_deviation_rigid,
                   shifts_opencv=shifts_opencv, nonneg_movie=True,
                   border_nan=border_nan)
 
@@ -57,6 +57,25 @@ if play_movies:
          q_max=99.5, fr=30, magnification=2, bord_px = 0*bord_px_rig) # press q to exit
 
 import tifffile as tf
-fname = fname.split('/')[-1]
+fname = fname.split('/')[-1].split('.')[0]
 tf.imwrite(f'{fname}_caimanreg.tif', m_rig)
 print(f'saved as : {fname}')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#
