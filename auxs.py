@@ -6,6 +6,8 @@ import shutil
 from pathlib import Path
 from igor2 import packed
 
+# TODO: igor2 only open 'simple' waves
+
 
 # converts list of steps (start, end, value) into np indices
 def steps2indexes(steps,val,base=False):
