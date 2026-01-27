@@ -4,7 +4,7 @@ from auxs import *
 import tifffile as tf
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import colors 
+from matplotlib import colors
 import platform
 import caiman as cm
 from caiman.motion_correction import MotionCorrect
@@ -26,34 +26,26 @@ fname = 'step_HUC_a1.tif'
 sep = '/' if platform.system() == 'Darwin' else '\\'
 
 # try to load from igor experiment (.pxp)
-loaded = False
-if os.path.isdir(exp_path):
-    for f in os.listdir(exp_path):
-        if f.endswith('.pxp'):
-            fpath = os.path.join(exp_path,f)
-    if fpath:
-        try:
-            rx_wave, reg_wave, sti_wave = load_waves_from_igor_exp(fpath)
-            # transpose axes: [time][y][x] : [t][row][col]
-            response = rx_wave['wData'].T
-            response_reg = reg_wave['wData'].T
-            stimulus = sti_wave['wData']
-            stimulus = stimulus/10**6 if stimulus.mean() > 100 else stimulus
-        except:
-            fpath = None
-            print(f'\ncouldn\'t load .pxp file at {fpath}\n')
-    # correct folder but no .pxp: try to load .tif
-    else:
-        # try to load tif file
-        fpath = os.path.join(exp_path,fname)
-        fpath = fpath if os.path.isfile(fpath) else None
+response, response_reg, stimulus = load_igor_exp(igor_exp_path)
+
+# loaded = False
+# if os.path.isdir(exp_path):
+#     for f in os.listdir(exp_path):
+#         if f.endswith('.pxp'):
+#             fpath = os.path.join(exp_path,f)
+#
+#     # correct folder but no .pxp: try to load .tif
+#     else:
+#         # try to load tif file
+#         fpath = os.path.join(exp_path,fname)
+#         fpath = fpath if os.path.isfile(fpath) else None
 # if couldn't load, load manually
-if not fpath:
-    # fpath = file_menu(path=fpath, file_ext=['tif','tiff','pxp'])
-    fpath = file_menu(path=fpath, file_ext='tif')
-    # make names
-    exp_path = sep.join(fpath.split(sep)[:-1])
-fname = fpath.split(sep)[-1].split('.')[0]
+# if not fpath:
+#     # fpath = file_menu(path=fpath, file_ext=['tif','tiff','pxp'])
+#     fpath = file_menu(path=fpath, file_ext='tif')
+#     # make names
+#     exp_path = sep.join(fpath.split(sep)[:-1])
+# fname = fpath.split(sep)[-1].split('.')[0]
 # if tif: load timewave info
 if fname.endswith('tif') or fname.endswith('.tiff'):
     # load stimulus data (itx file from channel 2)
@@ -93,7 +85,7 @@ if not os.path.isfile(fpath_caiman):
                       shifts_opencv=shifts_opencv, nonneg_movie=True,
                       border_nan=border_nan)
 
-    mc.motion_correct(save_movie=True)    
+    mc.motion_correct(save_movie=True)
     m_rig = cm.load(mc.mmap_file)
     # save
     tf.imwrite(f'{fpath_caiman}', m_rig)
@@ -103,7 +95,7 @@ response_caimanreg = tf.imread(fpath_caiman)
 
 
 
-# match response & stimulus data 
+# match response & stimulus data
 # get steps
 print(f'stimulus points: {len(stimulus)}')
 steps = get_steps_vals(stimulus,delta=0.5)
@@ -162,7 +154,7 @@ def compare_pixels(arr1,arr2,arr3,row,col,title=''):
 
 # search for pixels with non-gaussian behavior
 # dict for storing low, rest, high intensity cases
-# rmap_mean = 
+# rmap_mean =
 rmap_mad = np.zeros((5,50,128))
 rmap_kur = np.zeros((6,50,128))
 for row in tqdm(range(50)):
@@ -183,13 +175,13 @@ for row in tqdm(range(50)):
         kur_l = kurtosis(dl, axis=0, fisher=True)
         kur_r = kurtosis(dr, axis=0, fisher=True)
         kur_h = kurtosis(dh, axis=0, fisher=True)
-        
+
         # if abs(kur_l) >= 10 or abs(kur_h) >= 10 or madr_l >= 1.5 or madr_h >= 1.5:
         if madr_l > 1.5 or madr_h > 1.5:
             # use base as contrast (should be normal)
             compare_pixels(rilow,rihigh,rirest,row,col,title=f'px=({row},{col}) - mad={madr_l:.2f},{madr_r:.2f},{madr_h:.2f} - kurtosis={kur_l:.2f},{kur_r:.2f},{kur_h:.2f}')
             rmap_mad[:,row,col] = 1
-        
+
         rmap_mad[0][row][col] = madr_l
         rmap_mad[1][row][col] = madr_r
         rmap_mad[2][row][col] = madr_h
@@ -201,7 +193,7 @@ for row in tqdm(range(50)):
 # # rmap MAD relations
 rmap_mad[3] = rmap_mad[0]/rmap_mad[1]
 rmap_mad[4] = rmap_mad[2]/rmap_mad[1]
-# rmap[5] = 
+# rmap[5] =
 # rmap[6] = rilow.mean(axis=0)
 # rmap[7] = rirest.mean(axis=0)
 # rmap[8] = rihigh.mean(axis=0)
