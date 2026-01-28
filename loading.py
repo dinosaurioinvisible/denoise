@@ -12,7 +12,7 @@ import stack2stimulus
 
 # wrapper for loading imaging data
 def load_reg_stim(path):
-    # try to find correct path
+    # 1) try to find correct path for igor exp
     fpath = None
     # if path = full path
     if os.path.isfile(str(path)) and path.endswith('.pxp'):
@@ -23,15 +23,17 @@ def load_reg_stim(path):
             if filename.endswith('.pxp'):
                 fpath = os.path.join(path,filename)
                 break
-    # if path = filename (with/without extension)
+    # if path = filename without extension
     else:
         # look in current dir
         for filename in os.listdir(os.getcwd()):
-            if filename == path or filename.split('.')[0] == path:
+            if filename.split('.')[0] == path and filename.endswith('.pxp'):
                 fpath = os.path.join(os.getcwd(),filename)
-    # try to load igor exp
-    if fpath:
-        print(f'\ntrying to load .pxp file at {fpath}\n')
+    print(f'\nfpath: {fpath}')
+    
+    # 2) try to load igor exp
+    if fpath and fpath.endswith('.pxp'):
+        print(f'\ntrying to load .pxp file at {fpath}')
         try:
             rx_wave, reg_wave, sti_wave = load_waves_from_igor_exp(fpath)
             # transpose axes: [time][y][x] => [t][row][col]
@@ -41,9 +43,9 @@ def load_reg_stim(path):
             stimulus = stimulus/10**6 if stimulus.mean() > 100 else stimulus
             return response, response_reg, stimulus
         except:
-            print('\nexperiment too complex for igor2 module\n')
-    else:
-        print('\nno experiment found\n')
+            print('experiment too complex for the igor2 module')
+            
+    
     # try to load from files in folder
     # if path = full path
     if os.path.isfile(str(path)) and (path.endswith('.tif') or path.endswith('.tiff')):
@@ -53,8 +55,8 @@ def load_reg_stim(path):
         # look for reg file
         for filename in os.listdir(str(path)):
             if filename.endswith('.tif') or filename.endswith('tiff'):
-                if 'reg' in file.split('_'):
-                    fpath = file
+                if 'reg' in filename.split('_'):
+                    fpath = filename
                     break
         # if no reg file
         if not fpath:
@@ -81,10 +83,14 @@ def load_reg_stim(path):
     # if nothing worked, open file menu
     if not fpath:
         fpath = file_menu(dirpath, file_ext='tif,tiff,pxp')
+    # else, fpath is correct, but couldn't open file (prob .pxp)
+    # else:
+        
     # TODO: same code as above - make fx
     # if igor exp
+    import pdb; pdb.set_trace()
     if os.path.isfile(str(path)) and ends.endswith('.pxp'):
-        print(f'\ntrying to load .pxp file at {fpath}\n')
+        print(f'\ntrying to load .pxp file at {fpath}')
         try:
             rx_wave, reg_wave, sti_wave = load_waves_from_igor_exp(fpath)
             # transpose axes: [time][y][x] => [t][row][col]
@@ -94,16 +100,17 @@ def load_reg_stim(path):
             stimulus = stimulus/10**6 if stimulus.mean() > 100 else stimulus
             return response, response_reg, stimulus
         except:
-            print('\nexperiment too complex for igor2 module\n')
+            print('experiment too complex for igor2 module')
             fpath = None
     elif fpath:
         # if tif file: try to load tiff & itx files from folder
         response, response_reg, stimulus = None, None, None
         # opt1: (response_reg + .itx file)
         # opt2: response (raw): ch1 => response_reg, ch2 => stimulus (if needed)
-        print('\ntryng to load individual files from folder\n')
+        print('\ntryng to load individual files from folder')
         print(f'stack: {fpath}')
         # look for reg file and raw stacks
+        import pdb; pdb.set_trace()
         try:
             if 'reg' in fpath.split('_'):
                 response_reg = tf.imread(fpath)
@@ -112,13 +119,13 @@ def load_reg_stim(path):
                 response = tf.imread(fpath)
                 print(f'loaded raw stack at {fpath}')
         except:
-            print(f'\ncouldn\'t load stack at {fpath}\n')
+            print(f'couldn\'t load stack at {fpath}')
             fpath = None
         # now depending on which files there are:
         # 1) response reg + itx
         # 2) response reg + response -> itx
         if response_reg:
-            fpath_itx = search_ext_in_filedir(fpath,'itx')
+            fpath_itx = search_in_filedir(fpath,'itx')
             if fpath_itx:
                 print(f'loading .itx file for stimulus: {fpath_itx}')
                 try:
@@ -128,10 +135,8 @@ def load_reg_stim(path):
                     print(f'\ncouldn\'t load .itf file at {fpath_itx}\n')
             else:
                 # look for raw file
-
-
-
-
+                tifs = search_in_filedir(fpath,ext='tif,tiff')
+                
         if (fpath and response) or (fpath and response_reg):
             # load itx file with stimulus data, assuming same folder
             sep = '\\' if platform.system() == 'Windows' else '/'
@@ -165,7 +170,8 @@ def load_reg_stim(path):
 
 
 
-
+x = '/Users/f/Dropbox/_r66y/r66xe/2p_data/ca_a1'
+load_reg_stim(x)
 
 
 
