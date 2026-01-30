@@ -8,6 +8,7 @@ from igor2 import packed
 import platform
 from collections import defaultdict
 import tifffile as tf
+import re
 
 # TODO: igor2 only open 'simple' waves
 
@@ -55,6 +56,7 @@ def steps2indexes(steps,val,base=False):
         step_indexes = np.vstack((steps[0],steps[-1]))[:,:2]
     else:
         step_indexes = steps[np.where(steps[:,2]==val)][:,:2]
+    import pdb; pdb.set_trace()
     np_indexes = mk_np_indexes(step_indexes)
     return np_indexes
 
@@ -256,21 +258,23 @@ def deinterleave(stack):
 
 # raw way to look inside methods of an object
 # in_name assumes names separated by '_'
-def check_methods(object, in_name=''):
-    # filter some methods
-    for mx in dir(object):
-        mxs = []
-        if type(in_name) == str and in_name != '':
-            if in_name in mx.split('_'):
-                mxs.append(mx)
-        else:
-            mxs.append(mx)
+def inspect_methods(object, in_name='',startswith='',endswith=''):
+    # filter some methods (optional, otherwise it will include all)
+    mxs = []
+    for method in dir(object):
+        if method.startswith(str(startswith)):
+            mxs.append(method)
+        elif method.endswith(str(endswith)):
+            mxs.append(method)
+        elif re.search(str(in_name),method):
+            mxs.append(method)
     # check if possible
     for mx in mxs:
         print()
         print(mx)
         try:
             x = getattr(object,mx)
+            print(f'{mx}: {x}')
         except:
             print(x)
             print('prob require args')

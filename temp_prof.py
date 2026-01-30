@@ -11,94 +11,20 @@ from caiman.motion_correction import MotionCorrect
 import seaborn as sns
 from scipy.stats import kurtosis
 from tqdm import tqdm
+# from loading import load_pxp
 
-# full path to file
-fpath = None
-# path to folder to exp
-if platform.system() == "Darwin":
-    exp_path = "/Users/f/Dropbox/_r66y/r66xe/2p_data/ca_a1"
-elif platform.system() == "Windows":
-    exp_path = 'C:\\Users\\Fernando\\zf\\data\\glu_a1'
-# or file name
-fname = 'step_HUC_a1.tif'
+# # full path to file
+# igor_exp_path = 'C:\\Users\\Fernando\\zf\\data\\glu_a1\\caiman_igor_reg_comparison_glu.pxp'
+# response, response_reg, stimulus = load_pxp(igor_exp_path)
 
-# for file handling
-sep = '/' if platform.system() == 'Darwin' else '\\'
-
-# try to load from igor experiment (.pxp)
-response, response_reg, stimulus = load_igor_exp(igor_exp_path)
-
-# loaded = False
-# if os.path.isdir(exp_path):
-#     for f in os.listdir(exp_path):
-#         if f.endswith('.pxp'):
-#             fpath = os.path.join(exp_path,f)
-#
-#     # correct folder but no .pxp: try to load .tif
-#     else:
-#         # try to load tif file
-#         fpath = os.path.join(exp_path,fname)
-#         fpath = fpath if os.path.isfile(fpath) else None
-# if couldn't load, load manually
-# if not fpath:
-#     # fpath = file_menu(path=fpath, file_ext=['tif','tiff','pxp'])
-#     fpath = file_menu(path=fpath, file_ext='tif')
-#     # make names
-#     exp_path = sep.join(fpath.split(sep)[:-1])
-# fname = fpath.split(sep)[-1].split('.')[0]
-# if tif: load timewave info
-if fname.endswith('tif') or fname.endswith('.tiff'):
-    # load stimulus data (itx file from channel 2)
-    fname_itx = [x for x in os.listdir(exp_path) if x.endswith('.itx')][0]
-    fpath_itx = os.path.join(exp_path,fname_itx)
-    exp_path = sep.join(fpath.split(sep)[:-1])
-    fname = fpath.split(sep)[-1].split('.')[0]
-    if not os.path.isfile(fpath_itx):
-        fpath_itx = file_menu(path=fpath, file_ext='itx')
-    stimulus = read_itx(fpath_itx)
-    # actually load
-    stack = tf.imread(fpath)
-    # de-interleave
-    response, ch2 = deinterleave(stack)
-
-
-# load or register with caiman
-fname_caiman = [x for x in os.listdir(exp_path) if x.endswith('caimanreg.tif')][0]
-fpath_caiman = f'{exp_path}{sep}{fname_caiman}'
-fpath_caiman = ''
-if not os.path.isfile(fpath_caiman):
-    max_shifts = (6, 6)  # maximum allowed rigid shift in pixels (view the movie to get a sense of motion)
-    # strides =  (48, 48)  # create a new patch every x pixels for pw-rigid correction
-    # overlaps = (24, 24)  # overlap between patches (size of patch strides+overlaps) / pw
-    max_deviation_rigid = 3   # maximum deviation allowed for patch with respect to rigid shifts
-    pw_rigid = False # flag for performing rigid or piecewise rigid motion correction
-    shifts_opencv = True  # flag for correcting motion using bicubic interpolation (otherwise FFT interpolation is used)
-    border_nan = 'copy'  # replicate values along the boundary (if True, fill in with NaN)
-    # create a motion correction object
-    tif_fpath = f'{exp_path}{sep}{fname}_de-int.tif'
-    if not os.path.isfile(tif_fpath):
-        print(f'\ncouldn\'t find {tif_fpath}')
-        tif_fpath = file_menu(exp_path, file_ext='tif')
-    mc = MotionCorrect(tif_fpath, dview=None, max_shifts=max_shifts,
-                      # strides=strides, overlaps=overlaps,
-                      max_deviation_rigid=max_deviation_rigid,
-                      shifts_opencv=shifts_opencv, nonneg_movie=True,
-                      border_nan=border_nan)
-
-    mc.motion_correct(save_movie=True)
-    m_rig = cm.load(mc.mmap_file)
-    # save
-    tf.imwrite(f'{fpath_caiman}', m_rig)
-    print(f'\nsaved at : {fpath_caiman} \n')
-# load caiman reg file
-response_caimanreg = tf.imread(fpath_caiman)
-
-
+response = tf.imread('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_pre_AF10_a1001.tif')
+response_reg = tf.imread('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_pre_AF10_a1001_Ch1_reg.tif')
+stimulus = read_itx('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_timewave.itx')
 
 # match response & stimulus data
 # get steps
 print(f'stimulus points: {len(stimulus)}')
-steps = get_steps_vals(stimulus,delta=0.5)
+steps = get_steps_vals(stimulus,delta=0.1)
 
 # get response freq
 rx_freq = stimulus.shape[0]/response.shape[0]

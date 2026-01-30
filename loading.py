@@ -11,7 +11,10 @@ import stack2stimulus
 
 
 # wrapper for loading imaging data
-def load_reg_stim(path):
+
+
+# to load igor experiment
+def load_pxp(path):
     # 1) try to find correct path for igor exp
     fpath = None
     # if path = full path
@@ -29,10 +32,11 @@ def load_reg_stim(path):
         for filename in os.listdir(os.getcwd()):
             if filename.split('.')[0] == path and filename.endswith('.pxp'):
                 fpath = os.path.join(os.getcwd(),filename)
-    print(f'\nfpath: {fpath}')
-    
+    if not fpath:
+        print('\ncouldn\'t find .pxp\n')
+        return
     # 2) try to load igor exp
-    if fpath and fpath.endswith('.pxp'):
+    if fpath:
         print(f'\ntrying to load .pxp file at {fpath}')
         try:
             rx_wave, reg_wave, sti_wave = load_waves_from_igor_exp(fpath)
@@ -43,11 +47,14 @@ def load_reg_stim(path):
             stimulus = stimulus/10**6 if stimulus.mean() > 100 else stimulus
             return response, response_reg, stimulus
         except:
-            print('experiment too complex for the igor2 module')
-            
-    
+            print('experiment too complex for igor2 module')
+            return
+
+
+def load_reg_stim(path):
     # try to load from files in folder
     # if path = full path
+    fpath = None
     if os.path.isfile(str(path)) and (path.endswith('.tif') or path.endswith('.tiff')):
         fpath = path
     # if path = dir, look for tif/tiff files inside
@@ -85,7 +92,7 @@ def load_reg_stim(path):
         fpath = file_menu(dirpath, file_ext='tif,tiff,pxp')
     # else, fpath is correct, but couldn't open file (prob .pxp)
     # else:
-        
+
     # TODO: same code as above - make fx
     # if igor exp
     import pdb; pdb.set_trace()
@@ -136,7 +143,7 @@ def load_reg_stim(path):
             else:
                 # look for raw file
                 tifs = search_in_filedir(fpath,ext='tif,tiff')
-                
+
         if (fpath and response) or (fpath and response_reg):
             # load itx file with stimulus data, assuming same folder
             sep = '\\' if platform.system() == 'Windows' else '/'
@@ -178,6 +185,36 @@ load_reg_stim(x)
 
 
 
+# load or register with caiman
+# fname_caiman = [x for x in os.listdir(exp_path) if x.endswith('caimanreg.tif')][0]
+# fpath_caiman = f'{exp_path}{sep}{fname_caiman}'
+# fpath_caiman = ''
+# if not os.path.isfile(fpath_caiman):
+#     max_shifts = (6, 6)  # maximum allowed rigid shift in pixels (view the movie to get a sense of motion)
+#     # strides =  (48, 48)  # create a new patch every x pixels for pw-rigid correction
+#     # overlaps = (24, 24)  # overlap between patches (size of patch strides+overlaps) / pw
+#     max_deviation_rigid = 3   # maximum deviation allowed for patch with respect to rigid shifts
+#     pw_rigid = False # flag for performing rigid or piecewise rigid motion correction
+#     shifts_opencv = True  # flag for correcting motion using bicubic interpolation (otherwise FFT interpolation is used)
+#     border_nan = 'copy'  # replicate values along the boundary (if True, fill in with NaN)
+#     # create a motion correction object
+#     tif_fpath = f'{exp_path}{sep}{fname}_de-int.tif'
+#     if not os.path.isfile(tif_fpath):
+#         print(f'\ncouldn\'t find {tif_fpath}')
+#         tif_fpath = file_menu(exp_path, file_ext='tif')
+#     mc = MotionCorrect(tif_fpath, dview=None, max_shifts=max_shifts,
+#                       # strides=strides, overlaps=overlaps,
+#                       max_deviation_rigid=max_deviation_rigid,
+#                       shifts_opencv=shifts_opencv, nonneg_movie=True,
+#                       border_nan=border_nan)
+
+#     mc.motion_correct(save_movie=True)
+#     m_rig = cm.load(mc.mmap_file)
+#     # save
+#     tf.imwrite(f'{fpath_caiman}', m_rig)
+#     print(f'\nsaved at : {fpath_caiman} \n')
+# # load caiman reg file
+# response_caimanreg = tf.imread(fpath_caiman)
 
 
 

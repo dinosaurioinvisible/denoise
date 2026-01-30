@@ -4,6 +4,7 @@ import tifffile as tf
 from auxs import get_medata_from_tif, deinterleave, mk_savepath
 import matplotlib.pyplot as plt
 from igorwriter import IgorWave
+import re
 
 # ideally in each exp folder, you'd like to have at least 3 files:
 # raw tif, ch2 tif/itx/txt, reg tif
@@ -22,15 +23,25 @@ def ch2stimulus(fpath):
     # msPerLine doesn't change with processing
     chdata = get_medata_from_tif(fpath)
     # get msPerline
-    ms_pl = np.asarray(chdata['state.acq.msPerLine']).astype(float)
-    # check if the same for every slice
-    if np.all(ms_pl == ms_pl[0]):
-        ms_pl = ms_pl[0]
-    else:
-        raise 'acquisition rate isn\'t fixed'
+    try:
+        ms_pl = np.asarray(chdata['state.acq.msPerLine']).astype(float)
+        # check if the same for every slice
+        if np.all(ms_pl == ms_pl[0]):
+            ms_pl = ms_pl[0]
+        else:
+            raise 'acquisition rate isn\'t fixed'
+    except:
+        ms_pl = None
+    if ms_pl == None:
+        print('couldn\'t get msPerLine infor from metadata')
+        if re.search('step'):
+            print(f'assuming msPerLine = 1000, for step stimulus')
+            ms_pl = 1000
+        else:
+            print(f'assuming msPerLine = 1000, but do check if this is correct!')
+            ms_pl = 1000
     # miliseconds to seconds per line
     dt = ms_pl/1000
-
     # tensor processing
     if len(ch2.shape) != 3:
         raise Exception('\nincorrect kind of file? dims of stack != 3\n')
