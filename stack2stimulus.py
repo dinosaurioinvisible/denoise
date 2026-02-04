@@ -1,7 +1,7 @@
 
 import numpy as np
 import tifffile as tf
-from auxs import get_medata_from_tif, mk_savepath, mk_np_indexes
+from auxs import get_medata_from_tif, mk_savepath, mk_np_indexes, deinterleave
 import matplotlib.pyplot as plt
 from igorwriter import IgorWave
 

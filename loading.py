@@ -1,13 +1,13 @@
 
 
 import os
-import time
-import numpy as np
+# import time
+# import numpy as np
 from igor2 import packed
-import platform
-from collections import defaultdict
-import tifffile as tf
-import stack2stimulus
+# import platform
+# from collections import defaultdict
+# import tifffile as tf
+from stack2stimulus import ch2stimulus
 # from auxs import print_wave_data
 
 
@@ -55,13 +55,13 @@ def load_pxp(path):
 # open igor exp - returns: registered response, stimulus
 # if all_waves = True, returns list with [name, wave]
 def load_waves_from_igor_exp(exp_path, all_waves=False):
+    response, response_reg, stimulus = None, None, None
     if os.path.isfile(exp_path) and exp_path.endswith('.pxp'):
         pxp = packed.load(exp_path)
         # pxp is a tuple: [0]: list of records, [1]: dict['root']
         print('\nIgor waves in experiment:')
         if all_waves:
             waves = []
-        stimulus = None
         for key,v in pxp[1]['root'].items():
             # igor2 loads WaveRecords object containing byte_order, data, header & wave
             # wave is a dict with 2 keys 'version' & 'wave' (also dict)
@@ -70,21 +70,31 @@ def load_waves_from_igor_exp(exp_path, all_waves=False):
                 k = key.decode()
                 # import pdb; pdb.set_trace()
                 print(k)
-                if k.endswith('Ch1'):
+                if k.endswith('_Ch1'):
                     response = v.wave['wave']
                     print(f'response = {k}')
-                if k.endswith('Ch1_reg'):
+                if k.endswith('_Ch1_reg'):
                     response_reg = v.wave['wave']
                     print(f'response_reg = {k}')
                 if k.endswith('timewave'):
                     stimulus = v.wave['wave']
                     print(f'stimulus = {k}')
+                # in case there's no timewave 
+                # TODO
+                # if k.endswith('_Ch2'):
+                #     ch2 = v.wave['wave']
                 if all_waves:
                     waves.append([k,v.wave['wave']])
         # wave keys: bin_header, wave_header, wData (array), formula,
         # note (metadata), data_units, dimension_units, labels, sIndices
         if all_waves:
             return waves
+        if not response:
+            raise Exception('error: no Ch1 response wave found')
+        if not response_reg:
+            raise Exception('error: no Ch1_reg wave found')
+        if not stimulus:
+            raise Exception('couldn\'t find timewave wave in experiment')
         return response, response_reg, stimulus
     else:
         print('\nno .pxp file at path {path}\n')

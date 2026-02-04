@@ -4,7 +4,7 @@ import time
 import numpy as np
 import shutil
 from pathlib import Path
-from igor2 import packed
+# from igor2 import packed
 import platform
 from collections import defaultdict
 import tifffile as tf
