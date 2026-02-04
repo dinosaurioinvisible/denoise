@@ -1,10 +1,10 @@
 
 import numpy as np
 import tifffile as tf
-from auxs import get_medata_from_tif, deinterleave, mk_savepath
+from auxs import get_medata_from_tif, mk_savepath, mk_np_indexes
 import matplotlib.pyplot as plt
 from igorwriter import IgorWave
-import re
+
 
 # ideally in each exp folder, you'd like to have at least 3 files:
 # raw tif, ch2 tif/itx/txt, reg tif
@@ -30,16 +30,13 @@ def ch2stimulus(fpath):
             ms_pl = ms_pl[0]
         else:
             raise 'acquisition rate isn\'t fixed'
+        print(f'acquisition rate: {ms_pl} ms per line')
     except:
         ms_pl = None
     if ms_pl == None:
         print('couldn\'t get msPerLine infor from metadata')
-        if re.search('step'):
-            print(f'assuming msPerLine = 1000, for step stimulus')
-            ms_pl = 1000
-        else:
-            print(f'assuming msPerLine = 1000, but do check if this is correct!')
-            ms_pl = 1000
+        ms_pl = 1000
+        print(f'assuming msPerLine = {ms_pl}, but do check if this is correct!')
     # miliseconds to seconds per line
     dt = ms_pl/1000
     # tensor processing
@@ -70,3 +67,78 @@ def ch2stimulus(fpath):
     wave = IgorWave(yz_1d, name='stim_timewave')
     wave.save_itx(itx_savepath)
     return yz_1d
+
+
+# convert stimulus 1d array into indexes for movies' frames 
+def mk_step_indexes(points, sample_freq, delta=0.5, simple=False):
+    # i) split into steps, using delta for detecting transitions
+    steps = []
+    xi = 0
+    # cxs: start, end, val_start, val_end, up/down (1/-1)
+    for i in range(len(points)-1):
+        if abs(points[i+1] - points[i]) > delta:
+            # -1 is to later insert endpoint
+            steps.append([i, -1, points[i], points[i+1], int(points[i+1])-int(points[i])])
+    # append final base & remove 0:0 (artifact from scanimage)
+    steps[0] = [0, -1, 1, 1, 0]
+    # TODO: check 1000
+    steps.append([steps[-1][0]+1000, points.size/sample_freq, 1, 1, 0])
+    steps = np.array(steps).astype(int)
+    # convert datapoint numbers into indexes for frames
+    steps[:,0] = steps[:,0]/sample_freq
+    # insert endpoints
+    steps[np.where(steps[:,1]==-1),1] = steps[1:,0]
+    # make indexes for base
+    base = mk_np_indexes(np.vstack((steps[0][:2],steps[-1][:2])))
+    # make indexes for inc/dec
+    increase = steps[np.where(steps[:,4]==1)]
+    decrease = steps[np.where(steps[:,4]==-1)]
+    increase_01 = mk_np_indexes(increase[np.where(increase[:,3]==1)][:,:2])
+    increase_12 = mk_np_indexes(increase[np.where(increase[:,3]==2)][:,:2])
+    decrease_21 = mk_np_indexes(decrease[np.where(decrease[:,3]==1)][:,:2])
+    decrease_10 = mk_np_indexes(decrease[np.where(decrease[:,3]==0)][:,:2])
+    return steps, base, increase_01, increase_12, decrease_21, decrease_10
+    
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 

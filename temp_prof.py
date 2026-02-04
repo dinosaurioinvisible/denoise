@@ -1,163 +1,239 @@
 
 import os
-from auxs import *
+from auxs import read_itx
 import tifffile as tf
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import colors
-import platform
-import caiman as cm
-from caiman.motion_correction import MotionCorrect
+from platform import system
 import seaborn as sns
-from scipy.stats import kurtosis
 from tqdm import tqdm
-# from loading import load_pxp
+from loading import load_pxp
+from stack2stimulus import mk_step_indexes
+from scipy.stats import kstest, kurtosis
+from scipy.stats import wasserstein_distance as emd
 
-# # full path to file
-# igor_exp_path = 'C:\\Users\\Fernando\\zf\\data\\glu_a1\\caiman_igor_reg_comparison_glu.pxp'
-# response, response_reg, stimulus = load_pxp(igor_exp_path)
-
-response = tf.imread('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_pre_AF10_a1001.tif')
-response_reg = tf.imread('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_pre_AF10_a1001_Ch1_reg.tif')
-stimulus = read_itx('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_timewave.itx')
-
-# match response & stimulus data
-# get steps
-print(f'stimulus points: {len(stimulus)}')
-steps = get_steps_vals(stimulus,delta=0.1)
-
-# get response freq
-rx_freq = stimulus.shape[0]/response.shape[0]
-print(f'\nresponse datapoints = {response.shape[0]}')
-print(f'stimulus points = {stimulus.shape[0]}')
-print(f'1 response every: {rx_freq} stimulus points')
-
-# convert step indexes from stimulus > response arrays
-steps[:,:2] = (steps[:,:2]/rx_freq).astype(int)
-print('\nsteps:\n')
-print(steps)
-
-# assuming stimulus values: 0:low, 1:rest, 2:high
-low = steps2indexes(steps,0)
-high = steps2indexes(steps,2)
-# separate base from in-between resting periods
-# base = steps2indexes(steps,1,base=True)
-# rest = steps2indexes(steps,1)[1:-1]
-# TODO: rest/base comparison
-# doesn't seem to be necessary?
-rest = steps2indexes(steps,1)
-
-# check profiles
-# TODO: caiman comparison
-# ribase = response_reg[base]
-# rcbase = response_caimanreg[base]
-rirest = response_reg[rest]
-# rcrest = response_caimanreg[rest]
-rilow = response_reg[low]
-# rclow = response_caimanreg[low]
-rihigh = response_reg[high]
-# rchigh = response_caimanreg[high]
-
-# print some examples
-def compare_pixels(arr1,arr2,arr3,row,col,title=''):
-    r1 = arr1[:,row,col]
-    r2 = arr2[:,row,col]
-    r3 = arr3[:,row,col]
-    # plt.plot(r1)
-    # plt.plot(r2)
-    sns.distplot(r1)
-    sns.distplot(r2)
-    sns.distplot(r3)
-    if title:
-        plt.title(title)
-    plt.show()
-
-# print some exaples
-# for _ in range(10):
-#     row = np.random.randint(0,50)
-#     col = np.random.randint(0,128)
-#     compare_pixels(rirest,rilow,rihigh,row,col,title=f'row={row}, col={col}')
-
-# search for pixels with non-gaussian behavior
-# dict for storing low, rest, high intensity cases
-# rmap_mean =
-rmap_mad = np.zeros((5,50,128))
-rmap_kur = np.zeros((6,50,128))
-for row in tqdm(range(50)):
-    for col in range(128):
-        # compare distributions
-        dl = rilow[:,row,col]
-        dr = rirest[:,row,col]
-        dh = rihigh[:,row,col]
-        # mad val - MAD = median * (|x - median(x)|)
-        madl = np.median(np.abs(dl - np.median(dl)))
-        madr = np.median(np.abs(dr - np.median(dr)))
-        madh = np.median(np.abs(dh - np.median(dh)))
-        # mad ratio - for a gausian dist: SD ~ mad * 1.4826 => SD/MAD = 1.4826
-        madr_l = (np.std(dl) / madl) /1.4826
-        madr_r = (np.std(dr) / madr) /1.4826
-        madr_h = (np.std(dh) / madh) /1.4826
-        # if fisher=False => Pearson's (raw) & kurtosis of mean of normal dist = 3, instead of 0
-        kur_l = kurtosis(dl, axis=0, fisher=True)
-        kur_r = kurtosis(dr, axis=0, fisher=True)
-        kur_h = kurtosis(dh, axis=0, fisher=True)
-
-        # if abs(kur_l) >= 10 or abs(kur_h) >= 10 or madr_l >= 1.5 or madr_h >= 1.5:
-        if madr_l > 1.5 or madr_h > 1.5:
-            # use base as contrast (should be normal)
-            compare_pixels(rilow,rihigh,rirest,row,col,title=f'px=({row},{col}) - mad={madr_l:.2f},{madr_r:.2f},{madr_h:.2f} - kurtosis={kur_l:.2f},{kur_r:.2f},{kur_h:.2f}')
-            rmap_mad[:,row,col] = 1
-
-        rmap_mad[0][row][col] = madr_l
-        rmap_mad[1][row][col] = madr_r
-        rmap_mad[2][row][col] = madr_h
-        rmap_kur[0][row][col] = kur_l
-        rmap_kur[1][row][col] = kur_r
-        rmap_kur[2][row][col] = kur_h
+if system() == 'Windows':
+    response = tf.imread('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_pre_AF10_a1001.tif')
+    response_reg = tf.imread('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_pre_AF10_a1001_Ch1_reg.tif')
+    stimulus = read_itx('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_timewave.itx')
+else:
+    # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/glu_a2/steps_pre_af10_a1014.pxp'
+    fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/glu_a1/steps_pre_af10_a1001.pxp'
+    response, response_reg, stimulus = load_pxp(fpath)
 
 
-# # rmap MAD relations
-rmap_mad[3] = rmap_mad[0]/rmap_mad[1]
-rmap_mad[4] = rmap_mad[2]/rmap_mad[1]
-# rmap[5] =
-# rmap[6] = rilow.mean(axis=0)
-# rmap[7] = rirest.mean(axis=0)
-# rmap[8] = rihigh.mean(axis=0)
+print()
+# msPerLine = samples / number of lines / number of frames
+msPerLine = stimulus.size/response.shape[1]/response.shape[0]
+msPerFrame = msPerLine * response.shape[1]
+frPerSec = 1000/msPerFrame
+print(f'msPerLine = {msPerLine}, msPerFrame = {msPerFrame}')
+print(f'sampling rate = {frPerSec} Hz')
+# sanity check: get response freq => sample_freq = msPerFrame
+sample_freq = stimulus.shape[0]/response.shape[0]
+print(f'stimulus points = {stimulus.size}')
+print(f'response datapoints = {response.shape[0]}')
+print(f'1 sample every: {sample_freq} stimulus points: ')
+# match stimulus to every sampling point. *100 is for plotting
+stimulus_scaled = stimulus[::int(sample_freq)]*100
 
-for i in range(rmap_mad.shape[0]):
-    plt.imshow(rmap_mad[i])
-    # plt.colorbar(rmap_mad.shape[0])
+# match response & stimulus data 
+# returns indexes for frames
+steps, ixs00, ixs01, ixs12, ixs21, ixs10 = mk_step_indexes(stimulus, msPerFrame, delta=0.5)
+
+# slice stack into components: base
+tx00 = response*0
+rx00 = response[ixs00]
+tx00[ixs00] = response[ixs00]
+# low > base
+tx01 = response*0
+rx01 = response[ixs01]
+tx01[ixs01] = response[ixs01]
+# base > high
+tx12 = response*0
+rx12 = response[ixs12]
+tx12[ixs12] = response[ixs12]
+# high > base
+tx21 = response*0
+rx21 = response[ixs21]
+tx21[ixs21] = response[ixs21]
+# base > low
+tx10 = response*0
+rx10 = response[ixs10]
+tx10[ixs10] = response[ixs10]
+
+
+def mk_pixel_sum_map(arr,arr0=[],title='',mk_plots=True):
+    rows = 50
+    cols = 128
+    psmap = np.zeros((rows,cols))
+    for row in range(rows):
+        for col in range(cols):
+            psmap[row,col] = np.sum(arr[:,row,col])
+    if mk_plots:
+        im = plt.imshow(psmap)
+        plt.title(f'{title}')
+        plt.colorbar(im, orientation='horizontal')
+        plt.show()
+        if len(arr0) > 0:
+            deltamap = arr.sum(axis=0) - arr0.sum(axis=0)
+            plt.imshow(deltamap)
+            plt.title(f'{title} subs')
+            plt.show()
+    return psmap
+
+smap00 = mk_pixel_sum_map(rx00,title='00')
+smap01 = mk_pixel_sum_map(rx01, rx00, title='01')
+smap12 = mk_pixel_sum_map(rx12, rx00, title='12')
+smap21 = mk_pixel_sum_map(rx21, rx00, title='21')
+smap10 = mk_pixel_sum_map(rx10, rx00, title='10')
+
+
+def plot_vs(arr,row,col):
+    plt.plot(response[:,row,col])
+    plt.plot(arr[:,row,col])
+    plt.plot(stimulus_scaled)*10
+    plt.title(f'superimposed signals row={row}, col={col}')
     plt.show()
 
 
+def check(n=5):
+    for _ in range(n):
+        row = np.random.randint(0,50)
+        col = np.random.randint(0,120)
+        # kurtosis
+        k00 = kurtosis(rx00[:,row,col])
+        k01 = kurtosis(rx01[:,row,col])
+        k12 = kurtosis(rx12[:,row,col])
+        k21 = kurtosis(rx21[:,row,col])
+        k10 = kurtosis(rx10[:,row,col])
+        # emd X21[:,row,col])
+        e01 = emd(rx00[:,row,col],rx01[:,row,col])
+        e12 = emd(rx00[:,row,col],rx12[:,row,col])
+        e21 = emd(rx00[:,row,col],rx21[:,row,col])
+        e10 = emd(rx00[:,row,col],rx10[:,row,col])
+        # histograms
+        sns.distplot(rx00[:,row,col], label=f'00 - kur:{k00:.2f}')
+        sns.distplot(rx01[:,row,col], label=f'01 - kur:{k01:.2f}, emd:{e01:.2f}')
+        sns.distplot(rx12[:,row,col], label=f'12 - kur:{k12:.2f}, emd:{e12:.2f}')
+        sns.distplot(rx21[:,row,col], label=f'21 - kur:{k21:.2f}, emd:{e21:.2f}')
+        sns.distplot(rx10[:,row,col], label=f'10 - kur:{k10:.2f}, emd:{e10:.2f}')
+        plt.legend()
+        plt.title(f'row = {row}, col = {col}')
+        plt.show()
+        if e01 > 50: 
+            plot_vs(tx01,row,col)
+        elif e12 > 50:
+            plot_vs(tx12,row,col)
+        elif e21 > 75:
+            plot_vs(tx21,row,col)
+        elif e10 > 150:
+            plot_vs(tx10,row,col)
 
-# fig,axs = plt.subplot(3,3)
-# fig.suptitle('MAD plots')
-# vmin = np.min(madr_l.min(),madr_r.min(),madr_h.min())
-# vmax = np.max(madr_l.max(),madr_r.max(),madr_h.max())
-# color_norm = colors.Normalize(vmin=vmin, vmax=vmax)
-# images = []
-# for ax,rmap in zip(axs.flat, rmap_mad):
-#     images.append(ax.imshow(rmap, norm=color_norm))
-# axs[0].set_title()
-# axs[1].set_title()
-# axs[2].set_title()
-# axs[3].set_title()
-# axs[4].set_title()
-# axs[5].set_title()
-# fig.colorbar(images[0], ax=axs, orientation='vertical', fraction=.1)
-# plt.show()
+check()
 
 
-from scipy.stats import kstest
 
-def compare_ks(d1,d2,rows=50,cols=128):
+
+def compare_ks(d1,d2,rows=50,cols=128,title=''):
     cmap = np.zeros((50,128))
     for row in tqdm(range(rows)):
         for col in range(cols):
             x = kstest(d1[:,row,col],d2[:,row,col])
             cmap[row][col] = x.statistic
     plt.imshow(cmap)
+    plt.title(title)
+    plt.show()
+    return cmap
+
+ks01 = compare_ks(rx00,rx01, title='ks 01/base')
+ks12 = compare_ks(rx00,rx12, title='ks 12/base')
+ks21 = compare_ks(rx00,rx21, title='ks 21/base')
+ks10 = compare_ks(rx00,rx10, title='ks 10/base')
+
+sns.distplot(ks01, label='01')
+sns.distplot(ks12, label='12')
+sns.distplot(ks21, label='21')
+sns.distplot(ks10, label='10')
+plt.legend()
+plt.title('histograms of ks test results')
+plt.show()
+
+
+
+# sliding window
+# import pdb;pdb.set_trace()
+def compare_sw(x1,x2,wsize=2,title=''):
+    rows, cols = x1.shape[1:]
+    wmap = np.zeros((rows,cols))
+    for i in tqdm(range(1,rows-1,wsize)):
+        for j in range(1,cols-1,wsize):
+            w1 = x1[:,i-1:i+1,j-1:j+1].mean(axis=(1,2))
+            w2 = x2[:,i-1:i+1,j-1:j+1].mean(axis=(1,2))
+            dx = kstest(w1,w2)
+            wmap[i-1:i+1,j-1:j+1] = dx.statistic
+    plt.imshow(wmap)
+    plt.title(title)
+    plt.show()
+    return wmap
+
+sw01 = compare_sw(rx00,rx01, title='sw 01/base')
+sw12 = compare_sw(rx00,rx12, title='sw 12/base')
+sw21 = compare_sw(rx00,rx21, title='sw 21/base')
+sw10 = compare_sw(rx00,rx10, title='sw 10/base')
+    
+sns.distplot(sw01, label='01')
+sns.distplot(sw12, label='12')
+sns.distplot(sw21, label='21')
+sns.distplot(sw10, label='10')
+plt.legend()
+plt.title('histograms of sliding window test results')
+plt.show()
+
+
+
+def compare_emd(d1,d2,rows=50,cols=128,title=''):
+    cmap = np.zeros((50,128))
+    for row in tqdm(range(rows)):
+        for col in range(cols):
+            cmap[row][col] = emd(d1[:,row,col],d2[:,row,col])
+    plt.imshow(cmap)
+    plt.title(title)
+    plt.show()
+    return cmap
+
+emd01 = compare_emd(rx00,rx01, title='emd 01/base')
+emd12 = compare_emd(rx00,rx12, title='emd 12/base')
+emd21 = compare_emd(rx00,rx21, title='emd 21/base')
+emd10 = compare_emd(rx00,rx10, title='emd 10/base')
+
+sns.distplot(emd01, label='01')
+sns.distplot(emd12, label='12')
+sns.distplot(emd21, label='21')
+sns.distplot(emd10, label='10')
+plt.legend()
+plt.title('histograms of emd test results')
+plt.show()
+
+
+temd01 = compare_emd(tx00,tx01, title='tx emd 01/base')
+temd12 = compare_emd(tx00,tx12, title='tx emd 12/base')
+temd21 = compare_emd(tx00,tx21, title='tx emd 21/base')
+temd10 = compare_emd(tx00,tx10, title='tx emd 10/base')
+
+sns.distplot(temd01, label='01')
+sns.distplot(temd12, label='12')
+sns.distplot(temd21, label='21')
+sns.distplot(temd10, label='10')
+plt.legend()
+plt.title('histograms of tensor emd test results')
+plt.show()
+
+
+
+
+
+
 
 
 

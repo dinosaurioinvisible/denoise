@@ -50,63 +50,6 @@ def mk_savepath(fpath,ext='',tag=''):
         savepath = f'{sname}_{now}.{sext}'
     return savepath
 
-# converts list of steps (start, end, value) into np indices
-def steps2indexes(steps,val,base=False):
-    if base:
-        step_indexes = np.vstack((steps[0],steps[-1]))[:,:2]
-    else:
-        step_indexes = steps[np.where(steps[:,2]==val)][:,:2]
-    import pdb; pdb.set_trace()
-    np_indexes = mk_np_indexes(step_indexes)
-    return np_indexes
-
-# converts list of (start, end) to indices for np arrays
-def mk_np_indexes(indexes):
-    return np.concatenate([np.arange(a,b) for a,b in indexes])
-
-# open igor exp - returns: registered response, stimulus
-# if all_waves = True, returns list with [name, wave]
-def load_waves_from_igor_exp(exp_path, all_waves=False, print_data=True):
-    if os.path.isfile(exp_path) and exp_path.endswith('.pxp'):
-        pxp = packed.load(exp_path)
-        # pxp is a tuple: [0]: list of records, [1]: dict['root']
-        print('\nIgor waves in experiment:')
-        if all_waves:
-            waves = []
-        stimulus = None
-        for key,v in pxp[1]['root'].items():
-            # igor2 loads WaveRecords object containing byte_order, data, header & wave
-            # wave is a dict with 2 keys 'version' & 'wave' (also dict)
-            # i'm only loading wave here (data seems to be the same encoded as bytes)
-            if 'wave' in str(type(v)).split('.'):
-                k = key.decode()
-                # import pdb; pdb.set_trace()
-                print(k)
-                if k.endswith('Ch1'):
-                    response = v.wave['wave']
-                    print(f'response = {k}')
-                    if print_data:
-                        print_wave_data(response)
-                if k.endswith('Ch1_reg'):
-                    response_reg = v.wave['wave']
-                    print(f'response_reg = {k}')
-                    if print_data:
-                        print_wave_data(response_reg)
-                if k.endswith('timewave'):
-                    stimulus = v.wave['wave']
-                    print(f'stimulus = {k}')
-                    if print_data:
-                        print_wave_data(stimulus)
-                if all_waves:
-                    waves.append([k,v.wave['wave']])
-        # wave keys: bin_header, wave_header, wData (array), formula,
-        # note (metadata), data_units, dimension_units, labels, sIndices
-        if all_waves:
-            return waves
-        return response, response_reg, stimulus
-    else:
-        print('\nno .pxp file at path {path}\n')
-
 # makes a dictionary with info from every slice about some tag
 def get_medata_from_tif(tif_file_path,tag='ImageDescription'):
     tif = tf.TiffFile(tif_file_path)
@@ -124,6 +67,10 @@ def get_medata_from_tif(tif_file_path,tag='ImageDescription'):
             tag_info[key] += value
     return tag_info
 
+# converts list of (start, end) to indices for np arrays
+def mk_np_indexes(indexes):
+    return np.concatenate([np.arange(a,b) for a,b in indexes])
+
 # just print some wave data
 def print_wave_data(wave):
     print('\nwave header')
@@ -132,19 +79,6 @@ def print_wave_data(wave):
     print('\nnote:')
     for x in wave['note'].decode(errors='replace').split('\r'):
         print(x)
-
-# for steps experiments in Igor
-def get_steps_vals(points,delta=0.1):
-    cxs = []
-    for i in range(len(points)-1):
-        if abs(points[i+1] - points[i]) > delta:
-            cxs.append([i, points[i+1]])
-    steps = []
-    for i in range(len(cxs)-1):
-        steps.append([cxs[i][0]+1, cxs[i+1][0], cxs[i][1]])
-    last_i = cxs[-1][0]+1
-    steps.append([last_i, len(points), points[last_i]])
-    return np.array(steps).astype(int)
 
 # just read and returns data points from the .itx file
 def read_itx(fpath_itx):
@@ -291,6 +225,24 @@ def rmtree_retry(path, tries=30, delay=0.1):
     shutil.rmtree(path)
 
 
+import matplotlib.pyplot as plt
+def animated_imshow(arr, title=''):
+    # First set up the figure, the axis, and the plot element we want to animate
+    fig = plt.figure()
+    ax = plt.axes(xlim=(0, 10), ylim=(0, 10))
+    im=plt.imshow(arr[0])
+    
+    # initialization function: plot the background of each frame
+    def init():
+        im.set_data(np.random.random((5,5)))
+    return im
+    
+    # animation function.  This is called sequentially
+    def animate(i):
+        a=im.get_array()
+        a=a*np.exp(-0.001*i)    # exponential decay of the values
+        im.set_array(a)
+        return im
 
 
 
