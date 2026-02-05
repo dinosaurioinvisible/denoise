@@ -30,8 +30,9 @@ if system() == 'Windows':
     # response_reg = tf.imread('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_pre_AF10_a1001_Ch1_reg.tif')
     # stimulus = read_itx('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_timewave.itx')
 else:
-    # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/glu_a2/steps_pre_af10_a1014.pxp'
-    fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/glu_a1/steps_pre_af10_a1001.pxp'
+    # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_pre_af10_a1001.pxp'
+    # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/Steps_pre_AF10_a2008.pxp'
+    fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/Steps_pre_AF10_a1015.pxp'
     response, response_reg, stimulus = load_pxp(fpath)
 
 
@@ -76,6 +77,12 @@ rx10 = response[ixs10]
 tx10[ixs10] = response[ixs10]
 
 
+
+
+######################################################
+                # simple sum
+######################################################
+
 def mk_pixel_sum_map(arr,arr0=[],title='',mk_plots=True):
     rows = 50
     cols = 128
@@ -102,6 +109,10 @@ smap21 = mk_pixel_sum_map(rx21, rx00, title='21')
 smap10 = mk_pixel_sum_map(rx10, rx00, title='10')
 
 
+######################################################
+            # some helper fxs
+######################################################
+
 def plot_vs(arr,row,col,title=''):
     plt.plot(response[:,row,col])
     plt.plot(arr[:,row,col])
@@ -113,7 +124,7 @@ def plot_vs(arr,row,col,title=''):
     plt.show()
 
 
-def check(n=5):
+def check_distributions(n=5):
     for _ in range(n):
         row = np.random.randint(0,50)
         col = np.random.randint(0,120)
@@ -145,40 +156,52 @@ def check(n=5):
             plot_vs(tx21,row,col)
         elif e10 > 150:
             plot_vs(tx10,row,col)
+            
+            
+def compare_dists(dists, title=''):
+    dx01, dx12, dx21, dx10 = dists
+    sns.distplot(dx01, label='01')
+    sns.distplot(dx12, label='12')
+    sns.distplot(dx21, label='21')
+    sns.distplot(dx10, label='10')
+    plt.legend()
+    plt.title(title)
+    plt.show()
 
-check()
+
+######################################################
+                # ks.statistic
+######################################################
 
 
-
-
-def compare_ks(d1,d2,rows=50,cols=128,title=''):
+def compare_ks(d1,d2,rows=50,cols=128,title='',mk_cbar=True):
     cmap = np.zeros((50,128))
     for row in tqdm(range(rows)):
         for col in range(cols):
             x = kstest(d1[:,row,col],d2[:,row,col])
             cmap[row][col] = x.statistic
-    plt.imshow(cmap)
+    if mk_cbar:
+        im = plt.imshow(cmap)
+        plt.colorbar(im, orientation='horizontal')
+    else:
+        plt.imshow(cmap)
     plt.title(title)
     plt.show()
     return cmap
 
-ks01 = compare_ks(rx00,rx01, title='ks 01/base')
-ks12 = compare_ks(rx00,rx12, title='ks 12/base')
-ks21 = compare_ks(rx00,rx21, title='ks 21/base')
-ks10 = compare_ks(rx00,rx10, title='ks 10/base')
-
-sns.distplot(ks01, label='01')
-sns.distplot(ks12, label='12')
-sns.distplot(ks21, label='21')
-sns.distplot(ks10, label='10')
-plt.legend()
-plt.title('histograms of ks test results')
-plt.show()
+# ks01 = compare_ks(rx00,rx01, title='ks 01/base')
+# ks12 = compare_ks(rx00,rx12, title='ks 12/base')
+# ks21 = compare_ks(rx00,rx21, title='ks 21/base')
+# ks10 = compare_ks(rx00,rx10, title='ks 10/base')
+# compare_dists([ks01,ks12,ks21,ks10], title='histograms of ks test results')
 
 
+
+######################################################
+                # sliding window
+######################################################
 
 # sliding window
-# import pdb;pdb.set_trace()
 def compare_sw(x1,x2,wsize=2,title=''):
     rows, cols = x1.shape[1:]
     wmap = np.zeros((rows,cols))
@@ -193,20 +216,17 @@ def compare_sw(x1,x2,wsize=2,title=''):
     plt.show()
     return wmap
 
-sw01 = compare_sw(rx00,rx01, title='sw 01/base')
-sw12 = compare_sw(rx00,rx12, title='sw 12/base')
-sw21 = compare_sw(rx00,rx21, title='sw 21/base')
-sw10 = compare_sw(rx00,rx10, title='sw 10/base')
-
-sns.distplot(sw01, label='01')
-sns.distplot(sw12, label='12')
-sns.distplot(sw21, label='21')
-sns.distplot(sw10, label='10')
-plt.legend()
-plt.title('histograms of sliding window test results')
-plt.show()
+# sw01 = compare_sw(rx00,rx01, title='sw 01/base')
+# sw12 = compare_sw(rx00,rx12, title='sw 12/base')
+# sw21 = compare_sw(rx00,rx21, title='sw 21/base')
+# sw10 = compare_sw(rx00,rx10, title='sw 10/base')
+# compare_dists([sw01,sw12,sw21,sw10], title='histograms of sliding window test results')
 
 
+
+######################################################
+                # emd & tensor emd
+######################################################
 
 def compare_emd(d1,d2,rows=50,cols=128,title='',mk_cbar=True):
     cmap = np.zeros((50,128))
@@ -226,52 +246,46 @@ emd01 = compare_emd(rx00,rx01, title='emd 01/base')
 emd12 = compare_emd(rx00,rx12, title='emd 12/base')
 emd21 = compare_emd(rx00,rx21, title='emd 21/base')
 emd10 = compare_emd(rx00,rx10, title='emd 10/base')
-
-sns.distplot(emd01, label='01')
-sns.distplot(emd12, label='12')
-sns.distplot(emd21, label='21')
-sns.distplot(emd10, label='10')
-plt.legend()
-plt.title('histograms of emd test results')
-plt.show()
+compare_dists([emd01,emd12,emd21,emd10], title='histograms of emd test results')
 
 
-temd01 = compare_emd(tx00,tx01, title='tx emd 01/base')
-temd12 = compare_emd(tx00,tx12, title='tx emd 12/base')
-temd21 = compare_emd(tx00,tx21, title='tx emd 21/base')
-temd10 = compare_emd(tx00,tx10, title='tx emd 10/base')
-
-sns.distplot(temd01, label='01')
-sns.distplot(temd12, label='12')
-sns.distplot(temd21, label='21')
-sns.distplot(temd10, label='10')
-plt.legend()
-plt.title('histograms of tensor emd test results')
-plt.show()
+# temd01 = compare_emd(tx00,tx01, title='tx emd 01/base')
+# temd12 = compare_emd(tx00,tx12, title='tx emd 12/base')
+# temd21 = compare_emd(tx00,tx21, title='tx emd 21/base')
+# temd10 = compare_emd(tx00,tx10, title='tx emd 10/base')
+# compare_dists([temd01,temd12,temd21,temd10], title='histograms of tensor emd test results')
 
 
-###################
-# working from emd results from here
 
+######################################################
+                # emd eval
+######################################################
 
 # evaluates highest cmap points
-def check_cmap(cmap,threshold=100,mk_plots=True):
+def eval_cmap(cmap,tx,rx,threshold=100,mk_plots=True):
     rows, cols = np.where(cmap > threshold)
-    # sort pixels by value
-    pxs = sorted([[a, b, cmap[a][b]] for a,b in zip(rows,cols)], key=lambda x:x[2], reverse=True)
-    mask = np.zeros((rows,cols)).astype(int)
-    for row,col,val in pxs:
-        print(f'row={row}, col={col}, val={val:.2f}')
+    # sort pixels by value - if pixel mean > base mean
+    pxs = sorted([[row,col,cmap[row][col]] for row,col in zip(rows,cols) if rx[:,row,col].mean() > rx00[:,row,col].mean()], key=lambda x:x[2], reverse=True)    
+    mask = np.zeros((cmap.shape)).astype(int)
+    for ei, (row,col,val) in enumerate(pxs):
+        print(f'{ei+1} - row={row}, col={col}, val={val:.2f}')
         if mk_plots:
-            plot_vs(cmap,row,col,title=f'row={row}, col={col}, val={val:.2f}')
+            plot_vs(tx,row,col,title=f'row={row}, col={col}, val={val:.2f}')
         mask[row][col] = 1
+    rows,cols = np.where(mask==1)
+    for row,col in zip(rows,cols):
+        mask[max(0,row-1):row+2,max(0,col-1):col+2] = 1
+    if mk_plots:
+        masked_cmap = cmap * mask
+        plt.imshow(masked_cmap)
     return mask
 
-mask01 = check_cmap(emd01)
-mask12 = check_cmap(emd12)
-mask21 = check_cmap(emd21)
-mask10 = check_cmap(emd10)
-    
+mask01 = eval_cmap(emd01,tx01,rx01,threshold=300)
+# mask12 = eval_cmap(emd12,tx12,rx12,threshold=300)
+# mask21 = eval_cmap(emd21,tx21,rx21,threshold=100)
+# mask10 = eval_cmap(emd10,tx10,rx10,threshold=600)
+
+
 
 
 

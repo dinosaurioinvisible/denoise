@@ -26,7 +26,7 @@ palette = np.array([[255, 255, 255],   # 0:white
                     [  0,   0,   0]])  # 9:black
 
 # plot animation
-def gol_animplot(iims, rows=0, cols=0, step=100, color='gray', title='', mask=[], from_palette=False):
+def animplot(iims, rows=0, cols=0, step=100, color='gray', title='', mask=[], from_palette=False):
     # make list for subplots
     if not isinstance(iims, list):
         iims = [iims]
@@ -66,9 +66,9 @@ def gol_animplot(iims, rows=0, cols=0, step=100, color='gray', title='', mask=[]
                 ims[ui].set_array(iims[ui][ti])
         return [im for im in ims]
     anim = animation.FuncAnimation(fig,update_fig,interval=step,blit=False,repeat=True,cache_frame_data=False)
-    # plt.show()
-    # plt.close()
-    return anim
+    plt.show()
+    plt.close()
+    # return anim
 
 # search for file with some ext or tag in the same folder as another file
 # as_list returns data as list, be it 0, 1 or many
