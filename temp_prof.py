@@ -13,8 +13,8 @@ from scipy.stats import kstest, kurtosis
 from scipy.stats import wasserstein_distance as emd
 
 if system() == 'Windows':
-    response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a1\\steps_pre_AF10_a1001.pxp')
-    # response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a2\\Steps_pre_AF10_a2008.pxp')
+    # response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a1\\steps_pre_AF10_a1001.pxp')
+    response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a2\\Steps_pre_AF10_a2008.pxp')
     # response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A1\\Steps_pre_AF10_a1015.pxp')
     # response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A2\\steps_pre_AF10_a2021.pxp')
     # response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F3_glut_HUC_AF10\\a1\\steps_pre_AF10_a1034.pxp')
@@ -50,7 +50,7 @@ print(f'1 sample every: {sample_freq} stimulus points: ')
 # match stimulus to every sampling point. *100 is for plotting
 stimulus_scaled = stimulus[::int(sample_freq)]*100
 
-# match response & stimulus data 
+# match response & stimulus data
 # returns indexes for frames
 steps, ixs00, ixs01, ixs12, ixs21, ixs10 = mk_step_indexes(stimulus, msPerFrame, delta=0.5)
 
@@ -102,11 +102,14 @@ smap21 = mk_pixel_sum_map(rx21, rx00, title='21')
 smap10 = mk_pixel_sum_map(rx10, rx00, title='10')
 
 
-def plot_vs(arr,row,col):
+def plot_vs(arr,row,col,title=''):
     plt.plot(response[:,row,col])
     plt.plot(arr[:,row,col])
     plt.plot(stimulus_scaled)*10
-    plt.title(f'superimposed signals row={row}, col={col}')
+    if title:
+        plt.title(title)
+    else:
+        plt.title(f'superimposed signals row={row}, col={col}')
     plt.show()
 
 
@@ -134,7 +137,7 @@ def check(n=5):
         plt.legend()
         plt.title(f'row = {row}, col = {col}')
         plt.show()
-        if e01 > 50: 
+        if e01 > 50:
             plot_vs(tx01,row,col)
         elif e12 > 50:
             plot_vs(tx12,row,col)
@@ -194,7 +197,7 @@ sw01 = compare_sw(rx00,rx01, title='sw 01/base')
 sw12 = compare_sw(rx00,rx12, title='sw 12/base')
 sw21 = compare_sw(rx00,rx21, title='sw 21/base')
 sw10 = compare_sw(rx00,rx10, title='sw 10/base')
-    
+
 sns.distplot(sw01, label='01')
 sns.distplot(sw12, label='12')
 sns.distplot(sw21, label='21')
@@ -249,6 +252,32 @@ plt.show()
 
 ###################
 # working from emd results from here
+
+
+# evaluates highest cmap points
+def check_cmap(cmap,threshold=100,mk_plots=True):
+    rows, cols = np.where(cmap > threshold)
+    # sort pixels by value
+    pxs = sorted([[a, b, cmap[a][b]] for a,b in zip(rows,cols)], key=lambda x:x[2], reverse=True)
+    mask = np.zeros((rows,cols)).astype(int)
+    for row,col,val in pxs:
+        print(f'row={row}, col={col}, val={val:.2f}')
+        if mk_plots:
+            plot_vs(cmap,row,col,title=f'row={row}, col={col}, val={val:.2f}')
+        mask[row][col] = 1
+    return mask
+
+mask01 = check_cmap(emd01)
+mask12 = check_cmap(emd12)
+mask21 = check_cmap(emd21)
+mask10 = check_cmap(emd10)
+    
+
+
+
+
+
+
 
 
 
