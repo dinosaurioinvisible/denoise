@@ -13,8 +13,8 @@ from scipy.stats import kstest, kurtosis
 from scipy.stats import wasserstein_distance as emd
 
 if system() == 'Windows':
-    # response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a1\\steps_pre_AF10_a1001.pxp')
-    response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a2\\Steps_pre_AF10_a2008.pxp')
+    response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a1\\steps_pre_AF10_a1001.pxp')
+    # response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a2\\Steps_pre_AF10_a2008.pxp')
     # response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A1\\Steps_pre_AF10_a1015.pxp')
     # response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A2\\steps_pre_AF10_a2021.pxp')
     # response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F3_glut_HUC_AF10\\a1\\steps_pre_AF10_a1034.pxp')
@@ -75,7 +75,19 @@ tx21[ixs21] = response[ixs21]
 tx10 = response*0
 rx10 = response[ixs10]
 tx10[ixs10] = response[ixs10]
-
+# combined cases:
+# up
+ixsup = np.concatenate((ixs01,ixs12))
+txup = response*0
+rxup = response[ixsup]
+txup[ixsup] = response[ixsup]
+# down
+ixsdown = np.concatenate((ixs21,ixs10))
+txdown = response*0
+rxdown = response[ixsdown]
+txdown[ixsdown] = response[ixsdown]
+# on-off
+# TODO
 
 
 
@@ -102,11 +114,11 @@ def mk_pixel_sum_map(arr,arr0=[],title='',mk_plots=True):
             plt.show()
     return psmap
 
-smap00 = mk_pixel_sum_map(rx00,title='00')
-smap01 = mk_pixel_sum_map(rx01, rx00, title='01')
-smap12 = mk_pixel_sum_map(rx12, rx00, title='12')
-smap21 = mk_pixel_sum_map(rx21, rx00, title='21')
-smap10 = mk_pixel_sum_map(rx10, rx00, title='10')
+# smap00 = mk_pixel_sum_map(rx00,title='00')
+# smap01 = mk_pixel_sum_map(rx01, rx00, title='01')
+# smap12 = mk_pixel_sum_map(rx12, rx00, title='12')
+# smap21 = mk_pixel_sum_map(rx21, rx00, title='21')
+# smap10 = mk_pixel_sum_map(rx10, rx00, title='10')
 
 
 ######################################################
@@ -116,6 +128,7 @@ smap10 = mk_pixel_sum_map(rx10, rx00, title='10')
 def plot_vs(arr,row,col,title=''):
     plt.plot(response[:,row,col])
     plt.plot(arr[:,row,col])
+    plt.plot(tx00[:,row,col])
     plt.plot(stimulus_scaled)*10
     if title:
         plt.title(title)
@@ -156,14 +169,17 @@ def check_distributions(n=5):
             plot_vs(tx21,row,col)
         elif e10 > 150:
             plot_vs(tx10,row,col)
-            
-            
+
+
 def compare_dists(dists, title=''):
-    dx01, dx12, dx21, dx10 = dists
+    dx01, dx12, dx21, dx10 = dists[:4]
     sns.distplot(dx01, label='01')
     sns.distplot(dx12, label='12')
     sns.distplot(dx21, label='21')
     sns.distplot(dx10, label='10')
+    if len(dists) == 6:
+        sns.distplot(dists[4], label='up')
+        sns.distplot(dists[5], label='down')
     plt.legend()
     plt.title(title)
     plt.show()
@@ -242,11 +258,11 @@ def compare_emd(d1,d2,rows=50,cols=128,title='',mk_cbar=True):
     plt.show()
     return cmap
 
-emd01 = compare_emd(rx00,rx01, title='emd 01/base')
-emd12 = compare_emd(rx00,rx12, title='emd 12/base')
-emd21 = compare_emd(rx00,rx21, title='emd 21/base')
-emd10 = compare_emd(rx00,rx10, title='emd 10/base')
-compare_dists([emd01,emd12,emd21,emd10], title='histograms of emd test results')
+# emd01 = compare_emd(rx00,rx01, title='emd 01/base')
+# emd12 = compare_emd(rx00,rx12, title='emd 12/base')
+# emd21 = compare_emd(rx00,rx21, title='emd 21/base')
+# emd10 = compare_emd(rx00,rx10, title='emd 10/base')
+# compare_dists([emd01,emd12,emd21,emd10], title='histograms of emd test results')
 
 
 # temd01 = compare_emd(tx00,tx01, title='tx emd 01/base')
@@ -262,43 +278,96 @@ compare_dists([emd01,emd12,emd21,emd10], title='histograms of emd test results')
 ######################################################
 
 # evaluates highest cmap points
-def eval_cmap(cmap,tx,rx,threshold=100,mk_plots=True):
+def eval_cmap(cmap,tx,rx,threshold=0,mk_plots=True,nplots=10):
+    print()
     rows, cols = np.where(cmap > threshold)
     # sort pixels by value - if pixel mean > base mean
-    pxs = sorted([[row,col,cmap[row][col]] for row,col in zip(rows,cols) if rx[:,row,col].mean() > rx00[:,row,col].mean()], key=lambda x:x[2], reverse=True)    
+    pxs = sorted([[row,col,cmap[row][col]] for row,col in zip(rows,cols) if rx[:,row,col].mean() > rx00[:,row,col].mean()], key=lambda x:x[2], reverse=True)
+    if not threshold:
+        pxs = pxs[:25]
     mask = np.zeros((cmap.shape)).astype(int)
+    mask_plot = True if mk_plots == True else False
     for ei, (row,col,val) in enumerate(pxs):
-        print(f'{ei+1} - row={row}, col={col}, val={val:.2f}')
+        pixel_mean = rx[:,row,col].mean()
+        baseline_mean = rx00[:,row,col].mean()
+        print(f'{ei+1} - row={row}, col={col}, val={val:.2f}, mean={pixel_mean:.1f}, base={baseline_mean:.1f}')
         if mk_plots:
-            plot_vs(tx,row,col,title=f'row={row}, col={col}, val={val:.2f}')
+            plot_vs(tx,row,col,title=f'yx=({row},{col}), val={val:.2f}, mean={pixel_mean:.1f}, base={baseline_mean:.1f}')
         mask[row][col] = 1
+        mk_plots = False if ei >= nplots else mk_plots
     rows,cols = np.where(mask==1)
     for row,col in zip(rows,cols):
         mask[max(0,row-1):row+2,max(0,col-1):col+2] = 1
-    if mk_plots:
+    if mask_plot:
         masked_cmap = cmap * mask
         plt.imshow(masked_cmap)
+        plt.show()
     return mask
 
-mask01 = eval_cmap(emd01,tx01,rx01,threshold=300)
+# mask01 = eval_cmap(emd01,tx01,rx01,threshold=300)
 # mask12 = eval_cmap(emd12,tx12,rx12,threshold=300)
 # mask21 = eval_cmap(emd21,tx21,rx21,threshold=100)
 # mask10 = eval_cmap(emd10,tx10,rx10,threshold=600)
 
 
+######################################################
+                # combined cases
+                # TODO
+######################################################
+
+# emdup = compare_emd(rx00,rxup,title='emd up/base')
+# emddown = compare_emd(rx00,rxdown,title='emd down/base')
+# compare_dists([emd01, emd12, emd21, emd10, emdup, emddown], title='histograms of emd tests results complete')
+
+# maskup = eval_cmap(emdup,txup,rxup,threshold=100,mk_plots=False)
+# maskdown = eval_cmap(emddown,txdown,rxdown,threshold=300,mk_plots=False)
 
 
+######################################################
+                # ks vs emd
+######################################################
+
+# plt.imshow(response.mean(axis=0))
+# plt.show()
+
+smap00 = mk_pixel_sum_map(rx00, title='00')
+smap01 = mk_pixel_sum_map(rx01, title='01')
+smap12 = mk_pixel_sum_map(rx12, title='12')
+smap21 = mk_pixel_sum_map(rx21, title='21')
+smap10 = mk_pixel_sum_map(rx10, title='10')
+
+ks01 = compare_ks(rx00,rx01, title='ks 01/base')
+# ks12 = compare_ks(rx00,rx12, title='ks 12/base')
+# ks21 = compare_ks(rx00,rx21, title='ks 21/base')
+# ks10 = compare_ks(rx00,rx10, title='ks 10/base')
+# compare_dists([ks01,ks12,ks21,ks10], title='histograms of ks test results')
+
+emd01 = compare_emd(rx00,rx01, title='emd 01/base')
+# emd12 = compare_emd(rx00,rx12, title='emd 12/base')
+# emd21 = compare_emd(rx00,rx21, title='emd 21/base')
+# emd10 = compare_emd(rx00,rx10, title='emd 10/base')
+# compare_dists([emd01,emd12,emd21,emd10], title='histograms of emd test results')
+
+temd01 = compare_emd(tx00,tx01, title='tx emd 01/base')
+# temd12 = compare_emd(tx00,tx12, title='tx emd 12/base')
+# temd21 = compare_emd(tx00,tx21, title='tx emd 21/base')
+# temd10 = compare_emd(tx00,tx10, title='tx emd 10/base')
+# compare_dists([temd01,temd12,temd21,temd10], title='histograms of tensor emd test results')
+
+# 01
+mask_ks01 = eval_cmap(ks01,tx01,rx01)
+mask_emd01 = eval_cmap(emd01,tx01,rx01)
+mask_temd01 = eval_cmap(temd01,tx01,rx01)
 
 
+# mask12 = eval_cmap(emd12,tx12,rx12,threshold=300)
+# mask21 = eval_cmap(emd21,tx21,rx21,threshold=100)
+# mask10 = eval_cmap(emd10,tx10,rx10,threshold=600)
 
+from auxs import subplots
 
-
-
-
-
-
-
-
+rmean = response.mean(axis=0)
+subplots([rmean,mask_ks01*smap01,mask_emd01*smap01,mask_temd01*smap01])
 
 
 

@@ -10,8 +10,26 @@ from collections import defaultdict
 import tifffile as tf
 import re
 from matplotlib import animation
+from matplotlib import colors
 
 # TODO: igor2 only open 'simple' waves
+
+def subplots(arrs=[], title=''):
+
+    fig, axs = plt.subplots(2, 2)
+    fig.suptitle(title)
+
+    # create a single norm to be shared across all images
+    # norm = colors.Normalize(vmin=np.min(arrs), vmax=np.max(arrs))
+
+    images = []
+    for ax, data in zip(axs.flat, arrs):
+        # images.append(ax.imshow(data, norm=norm))
+        images.append(ax.imshow(data))
+        
+    # fig.colorbar(images[0], ax=axs, orientation='horizontal', fraction=.1)
+    plt.show()
+
 
 # just in case, to define colors manually
 palette = np.array([[255, 255, 255],   # 0:white
@@ -56,7 +74,7 @@ def animplot(iims, rows=0, cols=0, step=100, color='gray', title='', mask=[], fr
         for ui,ax in enumerate(axs.flat):
             # do stuff
             if len(mask) > 0:
-                iims[copy_index][ti] = iims[copy_index][ti] * mask 
+                iims[copy_index][ti] = iims[copy_index][ti] * mask
             # import pdb; pdb.set_trace()
             if from_palette:
                 ax.imshow(palette[iims.astype(int)])
