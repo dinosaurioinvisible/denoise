@@ -86,7 +86,11 @@ ixsdown = np.concatenate((ixs21,ixs10))
 txdown = response*0
 rxdown = response[ixsdown]
 txdown[ixsdown] = response[ixsdown]
-# on-off
+# active in general
+ixsactive = np.concatenate((ixs01,ixs12,ixs21,ixs10))
+txactive = response*0
+rxactive = response[ixsactive]
+txactive[ixsactive] = response[ixsactive]
 # TODO
 
 
@@ -187,6 +191,7 @@ def compare_dists(dists, title=''):
 
 ######################################################
                 # ks.statistic
+                # TODO: fix - these have to be dists
 ######################################################
 
 
@@ -282,7 +287,8 @@ def eval_cmap(cmap,tx,rx,threshold=0,mk_plots=True,nplots=10):
     print()
     rows, cols = np.where(cmap > threshold)
     # sort pixels by value - if pixel mean > base mean
-    pxs = sorted([[row,col,cmap[row][col]] for row,col in zip(rows,cols) if rx[:,row,col].mean() > rx00[:,row,col].mean()], key=lambda x:x[2], reverse=True)
+    # pxs = sorted([[row,col,cmap[row][col]] for row,col in zip(rows,cols) if rx[:,row,col].mean() > rx00[:,row,col].mean()], key=lambda x:x[2], reverse=True)
+    pxs = sorted([[row,col,cmap[row][col]] for row,col in zip(rows,cols)], key=lambda x:x[2], reverse=True)
     if not threshold:
         pxs = pxs[:25]
     mask = np.zeros((cmap.shape)).astype(int)
@@ -330,46 +336,57 @@ def eval_cmap(cmap,tx,rx,threshold=0,mk_plots=True,nplots=10):
 # plt.imshow(response.mean(axis=0))
 # plt.show()
 
-smap00 = mk_pixel_sum_map(rx00, title='00')
-smap01 = mk_pixel_sum_map(rx01, title='01')
-smap12 = mk_pixel_sum_map(rx12, title='12')
-smap21 = mk_pixel_sum_map(rx21, title='21')
-smap10 = mk_pixel_sum_map(rx10, title='10')
+# smap00 = mk_pixel_sum_map(rx00, title='00')
+# smap01 = mk_pixel_sum_map(rx01, title='01')
+# smap12 = mk_pixel_sum_map(rx12, title='12')
+# smap21 = mk_pixel_sum_map(rx21, title='21')
+# smap10 = mk_pixel_sum_map(rx10, title='10')
 
-ks01 = compare_ks(rx00,rx01, title='ks 01/base')
+# ks01 = compare_ks(rx00,rx01, title='ks 01/base')
 # ks12 = compare_ks(rx00,rx12, title='ks 12/base')
 # ks21 = compare_ks(rx00,rx21, title='ks 21/base')
 # ks10 = compare_ks(rx00,rx10, title='ks 10/base')
 # compare_dists([ks01,ks12,ks21,ks10], title='histograms of ks test results')
 
-emd01 = compare_emd(rx00,rx01, title='emd 01/base')
+# emd01 = compare_emd(rx00,rx01, title='emd 01/base')
 # emd12 = compare_emd(rx00,rx12, title='emd 12/base')
 # emd21 = compare_emd(rx00,rx21, title='emd 21/base')
 # emd10 = compare_emd(rx00,rx10, title='emd 10/base')
 # compare_dists([emd01,emd12,emd21,emd10], title='histograms of emd test results')
 
-temd01 = compare_emd(tx00,tx01, title='tx emd 01/base')
+# temd01 = compare_emd(tx00,tx01, title='tx emd 01/base')
 # temd12 = compare_emd(tx00,tx12, title='tx emd 12/base')
 # temd21 = compare_emd(tx00,tx21, title='tx emd 21/base')
 # temd10 = compare_emd(tx00,tx10, title='tx emd 10/base')
 # compare_dists([temd01,temd12,temd21,temd10], title='histograms of tensor emd test results')
 
 # 01
-mask_ks01 = eval_cmap(ks01,tx01,rx01)
-mask_emd01 = eval_cmap(emd01,tx01,rx01)
-mask_temd01 = eval_cmap(temd01,tx01,rx01)
+# mask_ks01 = eval_cmap(ks01,tx01,rx01)
+# mask_emd01 = eval_cmap(emd01,tx01,rx01)
+# mask_temd01 = eval_cmap(temd01,tx01,rx01)
+
 
 
 # mask12 = eval_cmap(emd12,tx12,rx12,threshold=300)
 # mask21 = eval_cmap(emd21,tx21,rx21,threshold=100)
 # mask10 = eval_cmap(emd10,tx10,rx10,threshold=600)
 
-from auxs import subplots
+# from auxs import subplots
 
-rmean = response.mean(axis=0)
-subplots([rmean,mask_ks01*smap01,mask_emd01*smap01,mask_temd01*smap01])
+# rmean = response.mean(axis=0)
+# subplots([rmean,mask_ks01*smap01,mask_emd01*smap01,mask_temd01*smap01])
 
 
+
+######################################################
+                # emd activity/baseline
+        # TODO: here you need actual distributions
+######################################################
+
+# for active/baseline comparison
+smap_all = mk_pixel_sum_map(rxactive)
+emd_all = compare_emd(tx00,txactive, title='generally active')
+mask_all = eval_cmap(emd_all,txactive,rxactive)
 
 
 

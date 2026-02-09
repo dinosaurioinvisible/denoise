@@ -73,16 +73,20 @@ def ch2stimulus(fpath):
 def mk_step_indexes(points, sample_freq, delta=0.5, simple=False):
     # i) split into steps, using delta for detecting transitions
     steps = []
-    xi = 0
     # cxs: start, end, val_start, val_end, up/down (1/-1)
     for i in range(len(points)-1):
         if abs(points[i+1] - points[i]) > delta:
-            # -1 is to later insert endpoint
-            steps.append([i, -1, points[i], points[i+1], int(points[i+1])-int(points[i])])
-    # append final base & remove 0:0 (artifact from scanimage)
-    steps[0] = [0, -1, 1, 1, 0]
-    # TODO: check 1000
-    steps.append([steps[-1][0]+1000, points.size/sample_freq, 1, 1, 0])
+            # get vals before/after sudden change in intensity 
+            before = int(points[i-1])
+            after = int(points[i+1])
+            # before & after are actually the step values
+            # -1 is for later insert endpoint (could be anything)
+            steps.append([i, -1, before, after, after-before])
+    # append baseline (beginning & end)
+    steps.insert(0,[0, -1, 1, 1, 0])
+    # last index + step size 
+    last_step = 2*steps[-1][0]-steps[-2][0]
+    steps.append([last_step, points.size/sample_freq, 1, 1, 0])
     steps = np.array(steps).astype(int)
     # convert datapoint numbers into indexes for frames
     steps[:,0] = steps[:,0]/sample_freq
@@ -94,13 +98,14 @@ def mk_step_indexes(points, sample_freq, delta=0.5, simple=False):
     increase = steps[np.where(steps[:,4]==1)]
     decrease = steps[np.where(steps[:,4]==-1)]
     increase_01 = mk_np_indexes(increase[np.where(increase[:,3]==1)][:,:2])
+    # import pdb; pdb.set_trace()
     increase_12 = mk_np_indexes(increase[np.where(increase[:,3]==2)][:,:2])
     decrease_21 = mk_np_indexes(decrease[np.where(decrease[:,3]==1)][:,:2])
     decrease_10 = mk_np_indexes(decrease[np.where(decrease[:,3]==0)][:,:2])
     return steps, base, increase_01, increase_12, decrease_21, decrease_10
     
     
-    
+
 
 
 
