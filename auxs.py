@@ -196,68 +196,18 @@ def dir_upsearch(dirname, filename=None, verbose=False):
             return fpath
     return os.getcwd()
 
-# simple window menu (returns None if quit)
-# TODO: maybe not os.chdir but point to it?
-def file_menu(path='',file_ext=['']):
-    # im hardocing this for now
-    if not path:
-        if platform.system() == 'Windows':
-            path = 'C:\\Users\\Fernando\\zf\\data'
-        else:
-            path = '/Users/f/Dropbox/_r66y/r66xe/2p_data/'
-    # try to open menu in path
-    try:
-        os.chdir(path)
-    except:
-        print(f'\ncould\'t open: {path}')
-        path = None
-    mistake = False
-    while True:
-        # print at top
-        if mistake:
-            print('\ninvalid option')
-            mistake = False
-        if not path:
-            path = os.getcwd()
-        print(f'\ncurrent location: {path}')
-        print(f'current file extension: {file_ext}')
-        # enable file ext
-        if type(file_ext) == str:
-            entries = [i for i in os.listdir() if i.endswith(file_ext)]
-        elif type(file_ext) == list:
-            entries = []
-            for fe in file_ext:
-                entries += [i for i in os.listdir() if i.endswith(file_ext)]
-            import pdb; pdb.set_trace()
-        else:
-            print(f'unrecognized type of file extension: {file_ext} (can be str or list)')
-        entries += [i for i in os.listdir() if os.path.isdir(i) and i not in entries]
-        entries.sort()
-        print()
-        for ei,entry in enumerate(entries):
-            print(f'{ei+1} - {entry}')
-        print('[u] to go up a directory')
-        print('[f] to change file extension')
-        print('[q] to quit (returns None)')
-        xi = input("\n >> ")
-        if xi == 'q' or xi == 'quit':
-            return
-        elif xi == 'f':
-            file_ext = input('\nnew file extension >> ')
-            print(f'new file ext: {file_ext}')
-        elif xi == 'u' or xi == 'up':
-            os.chdir('..')
-        else:
-            try:
-                fname = entries[int(xi)-1]
-                print(f'\nselected: {fname}')
-            except:
-                mistake = True
-            if not mistake:
-                if os.path.isdir(fname):
-                    os.chdir(os.path.join(cwd,fname))
-                else:
-                    return fname
+# to convert a string of items into a list of arguments
+def string_as_list(string):
+    # check if commas + spaces
+    if ', ' in string:
+        string.replace(',',' ')
+    return string.split(',')
+    # check if sepparated only by commas (no spaces)
+    if ',' in string:
+        return string.split(',')
+    # else (as it is)
+    return [string]
+    
 
 # simple de-interleave
 def deinterleave(stack):

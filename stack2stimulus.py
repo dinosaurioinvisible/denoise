@@ -70,7 +70,7 @@ def ch2stimulus(fpath):
 
 
 # convert stimulus 1d array into indexes for movies' frames 
-def mk_step_indexes(points, sample_freq, delta=0.5, simple=False):
+def mk_step_indexes(points, sample_freq=1, delta=0.5, split_by=''):
     # i) split into steps, using delta for detecting transitions
     steps = []
     # cxs: start, end, val_start, val_end, up/down (1/-1)
@@ -93,16 +93,23 @@ def mk_step_indexes(points, sample_freq, delta=0.5, simple=False):
     # insert endpoints
     steps[np.where(steps[:,1]==-1),1] = steps[1:,0]
     # make indexes for base
-    base = mk_np_indexes(np.vstack((steps[0][:2],steps[-1][:2])))
+    baseline = mk_np_indexes(np.vstack((steps[0][:2],steps[-1][:2])))
+    if split_by == 'activity':
+        activity = mk_np_indexes(steps[np.where(steps[:,4]!=0)][:,:2])
+        return steps, baseline, activity
     # make indexes for inc/dec
-    increase = steps[np.where(steps[:,4]==1)]
-    decrease = steps[np.where(steps[:,4]==-1)]
+    increase = mk_np_indexes(steps[np.where(steps[:,4]==1)][:,:2])
+    decrease = mk_np_indexes(steps[np.where(steps[:,4]==-1)][:,:2])
+    if split_by == 'on-off':
+        return steps, baseline, increase, decrease
     increase_01 = mk_np_indexes(increase[np.where(increase[:,3]==1)][:,:2])
-    # import pdb; pdb.set_trace()
     increase_12 = mk_np_indexes(increase[np.where(increase[:,3]==2)][:,:2])
     decrease_21 = mk_np_indexes(decrease[np.where(decrease[:,3]==1)][:,:2])
     decrease_10 = mk_np_indexes(decrease[np.where(decrease[:,3]==0)][:,:2])
-    return steps, base, increase_01, increase_12, decrease_21, decrease_10
+    if split_by == 'steps':
+        return steps, baseline, increase_01, increase_12, decrease_21, decrease_10
+    else:
+        return steps
     
     
 
