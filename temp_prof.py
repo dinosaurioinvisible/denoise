@@ -11,6 +11,7 @@ from loading import load_pxp
 from stack2stimulus import mk_step_indexes
 from scipy.stats import kstest, kurtosis
 from scipy.stats import wasserstein_distance as emd
+from skimage.feature import peak_local_max
 
 if system() == 'Windows':
     response, response_reg, stimulus = load_pxp('C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a1\\steps_pre_AF10_a1001.pxp')
