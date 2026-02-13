@@ -41,17 +41,19 @@ def load_pxp(path):
     # 2) try to load igor exp
     if fpath:
         print(f'\ntrying to load .pxp file at {fpath}')
-        try:
-            rx_wave, reg_wave, sti_wave = load_waves_from_igor_exp(fpath)
-            # transpose axes: [time][y][x] => [t][row][col]
-            response = rx_wave['wData'].T
-            response_reg = reg_wave['wData'].T
-            stimulus = sti_wave['wData']
-            stimulus = stimulus/10**6 if stimulus.mean() > 100 else stimulus
-            return response, response_reg, stimulus
-        except:
-            print('experiment too complex for igor2 module')
-            return
+        rx_wave, reg_wave, sti_wave, console_info = load_waves_from_igor_exp(fpath)
+        # transpose axes: [time][y][x] => [t][row][col]
+        response = rx_wave['wData'].T
+        response_reg = reg_wave['wData'].T
+        stimulus = sti_wave['wData']
+        stimulus = stimulus/10**6 if stimulus.mean() > 100 else stimulus
+        info = {}
+        console_info = console_info.split('\n')[1:5]
+        for ci in console_info:
+            k,v = ci.split(' was ')
+            k = k.replace(' ','')
+            info[k] = v
+        return response, response_reg, stimulus, info
 
 
 # open igor exp - returns: registered response, stimulus
@@ -64,6 +66,11 @@ def load_waves_from_igor_exp(exp_path, all_waves=False):
         print('\nIgor waves in experiment:')
         if all_waves:
             waves = []
+        for record in pxp[0]:
+            # recordType = 2: info from console
+            # recordType = 4: info from ART config
+            if record.header['recordType'] == 2:
+                info = record.text.decode()
         for key,v in pxp[1]['root'].items():
             # igor2 loads WaveRecords object containing byte_order, data, header & wave
             # wave is a dict with 2 keys 'version' & 'wave' (also dict)
@@ -75,6 +82,7 @@ def load_waves_from_igor_exp(exp_path, all_waves=False):
                 if k.endswith('_Ch1'):
                     response = v.wave['wave']
                     print(f' --> response = {k}')
+                # if k.endswith('_a1001'):
                 if k.endswith('_Ch1_reg'):
                     response_reg = v.wave['wave']
                     print(f' --> response_reg = {k}')
@@ -97,11 +105,11 @@ def load_waves_from_igor_exp(exp_path, all_waves=False):
             raise Exception('error: no Ch1_reg wave found')
         if not stimulus:
             raise Exception('couldn\'t find timewave wave in experiment')
-        return response, response_reg, stimulus
+        return response, response_reg, stimulus, info
     else:
         print('\nno .pxp file at path {path}\n')
 
-def pxp_info(response,stimulus, return_data=False):
+def pxp_info(response,stimulus, igor_info=None,return_data=False):
     print()
     # msPerLine = samples / number of lines / number of frames
     msPerLine = stimulus.size/response.shape[1]/response.shape[0]
@@ -146,6 +154,21 @@ def pxp_info(response,stimulus, return_data=False):
     print(f'y_j = j * {pixel_dy}')
     print(f't_k = k * {pixel_dt}')
     print()
+    
+    # info from igor console
+    if isinstance(igor_info, dict):
+        print('igor info:')
+        for k,v in igor_info.items():
+            print(f' {k}: {v}')
+        zoom = float(igor_info['zoom'])
+        frame_dim = fov/zoom
+        print(f'frame physical size = {frame_dim:.2f}')
+        pixel_dx /= zoom
+        pixel_dy /= zoom
+        print('upper bound? synaptic button area: 2x2 µms')
+        print(f'pixel height physical size = {pixel_dy:.2f} x {pixel_dx:.2f} µm')
+        print()
+    
     
     if return_data:
         # match stimulus to every response sampling point

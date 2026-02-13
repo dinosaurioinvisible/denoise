@@ -10,6 +10,21 @@ import tifffile as tf
 import re
 
 
+
+# make shorter arr into the same size as the larger by copying (tiling)
+# returns in the same order as received
+def tile2arr2(arr1,arr2):
+    if arr1.size > arr2.size:
+        f = int(arr1.size/arr2.size) + 1
+        arr2e = np.tile(arr2, f)
+        arr2e = arr2e[:arr1.size]
+        return arr1, arr2e
+    else:
+        f = int(arr2.size/arr1.size) + 1
+        arr1e = np.tile(arr1, f)
+        arr1e = arr1e[:arr2.size]
+        return arr1e, arr2
+
 # split path into dir & file
 def get_dir_file_paths(fpath):
     if not os.path.isfile:
@@ -22,9 +37,10 @@ def get_dir_file_paths(fpath):
 
 # change extension
 def change_extension(fname,new_ext):
+    basename = fname.split('.')[0]
     if not new_ext:
-        return fname.split('.')[0]
-    return f'{fname.split('.')[0]}.{new_ext}'
+        return basename
+    return f'{basename}.{new_ext}'
 
 # search for file with some ext or tag in the same folder as another file
 # as_list returns data as list, be it 0, 1 or many
@@ -188,24 +204,7 @@ def rmtree_retry(path, tries=30, delay=0.1):
     shutil.rmtree(path)
 
 
-import matplotlib.pyplot as plt
-def animated_imshow(arr, title=''):
-    # First set up the figure, the axis, and the plot element we want to animate
-    fig = plt.figure()
-    ax = plt.axes(xlim=(0, 10), ylim=(0, 10))
-    im=plt.imshow(arr[0])
 
-    # initialization function: plot the background of each frame
-    def init():
-        im.set_data(np.random.random((5,5)))
-    return im
-
-    # animation function.  This is called sequentially
-    def animate(i):
-        a=im.get_array()
-        a=a*np.exp(-0.001*i)    # exponential decay of the values
-        im.set_array(a)
-        return im
 
 
 

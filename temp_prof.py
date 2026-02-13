@@ -34,7 +34,7 @@ else:
     # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_pre_af10_a1001.pxp'
     # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/Steps_pre_AF10_a2008.pxp'
     fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/Steps_pre_AF10_a1015.pxp'
-    response, response_reg, stimulus = load_pxp(fpath)
+    response, response_reg, stimulus, igor_info = load_pxp(fpath)
 
 
 print()
@@ -51,6 +51,12 @@ print(f'response datapoints = {response.shape[0]}')
 print(f'1 sample every: {sample_freq} stimulus points: ')
 # match stimulus to every sampling point. *100 is for plotting
 stimulus_scaled = stimulus[::int(sample_freq)]*100
+# info from igor
+print('igor info:')
+for k,v in igor_info.items():
+    print(f'{k}: {v}')
+print()
+
 
 # match response & stimulus data
 # returns indexes for frames
