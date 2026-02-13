@@ -10,6 +10,10 @@ import tifffile as tf
 import re
 
 
+# just to avoid writing the same always
+def mk_sep():
+    sep = '\\' if platform.system() == 'Windows' else '/'
+    return sep
 
 # make shorter arr into the same size as the larger by copying (tiling)
 # returns in the same order as received
@@ -26,7 +30,7 @@ def tile2arr2(arr1,arr2):
         return arr1e, arr2
 
 # split path into dir & file
-def get_dir_file_paths(fpath):
+def get_dir_file_path(fpath):
     if not os.path.isfile:
         raise Exception(f'{fpath} is not a file')
     sep = '\\' if platform.system() == 'Windows' else '/'
@@ -37,6 +41,10 @@ def get_dir_file_paths(fpath):
 
 # change extension
 def change_extension(fname,new_ext):
+    sep = '\\' if platform.system() == 'Windows' else '/'
+    # if fname is path
+    if sep in fname:
+        fname = fname.split(sep)[-1]
     basename = fname.split('.')[0]
     if not new_ext:
         return basename

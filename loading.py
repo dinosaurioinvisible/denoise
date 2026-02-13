@@ -5,14 +5,7 @@ import os
 import numpy as np
 from igor2 import packed
 import platform
-# from collections import defaultdict
-# import tifffile as tf
-# from stack2stimulus import ch2stimulus
-# from auxs import print_wave_data
 from auxs import string_as_list
-
-
-# wrapper for loading imaging data
 
 
 # to load igor experiment
