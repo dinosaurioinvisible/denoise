@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import os
+import os, sys
 import cv2
 from tqdm import tqdm
 from auxs import change_extension, get_dir_file_path
+from loading import file_menu
 import tifffile as tf
 import numpy as np
 
@@ -19,7 +20,6 @@ def avi2tiff(fpath):
     while True:
         ret, frame = cap.read()
         if not ret:
-            keep = False
             break
         frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         frames.append(frame_gray)
@@ -39,7 +39,9 @@ def export_avi2tiff(fpath):
     while keep:
         frames = []
         frames_start = nframes
-        for _ in tqdm(range(nframes,nframes+size)):  
+        nframes_end = count_avi_frames(fpath)
+        nframes_end = min(nframes+size,nframes_end)
+        for _ in tqdm(range(nframes,nframes_end)):  
             ret, frame = cap.read()
             if not ret:
                 keep = False
@@ -49,6 +51,8 @@ def export_avi2tiff(fpath):
             nframes += 1
         farray = np.array(frames)
         
+        keep = False if nframes >= nframes_end else keep
+        # import pdb; pdb.set_trace()
         new_fname = f'{basename}_{frames_start}-{nframes}.tiff'
         save_fpath = os.path.join(new_fdir,new_fname)
         tf.imwrite(save_fpath, farray)
@@ -62,6 +66,13 @@ def export_avi2tiff(fpath):
 # export_avi2tiff(fpath)
 
 
+if __name__ == "__main__":
+    fpath = sys.argv[1]
+    if not os.path.isfile(fpath):
+        sys.stdout(f'\nno file {fpath}')
+        dirpath = fpath if os.path.isdir(fpath) == True else os.getcwd()
+        fpath = file_menu(dirpath)
+    export_avi2tiff(fpath)
 
 
 

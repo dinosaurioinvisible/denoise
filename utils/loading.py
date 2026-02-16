@@ -5,7 +5,7 @@ import os
 import numpy as np
 from igor2 import packed
 import platform
-from utils.auxs import string_as_list
+from auxs import string_as_list
 
 
 # to load igor experiment

@@ -9,11 +9,10 @@ from scipy.stats import wasserstein_distance as emd
 from skimage.feature import peak_local_max
 import matplotlib.pyplot as plt
 from utils.plotting_fxs import mk_plots, overlaying_imshows
-from utils.convolution import conv3d
 from utils.auxs import tile2arr2
+from utils.improc import gauss1d, conv3d
 from tqdm import tqdm
 import seaborn as sns
-
 
 # simple script to automatically look for synapses using KS method
 
@@ -83,6 +82,11 @@ mk_plots(ks_map, title='ks map')
 mk_plots(ks_regmap, title='ks reg map')
 mk_plots(emd_map, title='emd map')
 mk_plots(emd_regmap, title='emd reg map')
+
+
+# difference of 2 2d-gaussians - for band pass filtering
+
+
 
 
 # look for maxima
