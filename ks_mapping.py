@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
 
 from platform import system
-from loading import load_pxp, pxp_info
-from stack2stimulus import mk_step_indexes
+from utils.loading import load_pxp, pxp_info
+from utils.stack2stimulus import mk_step_indexes
 import numpy as np
 from scipy.stats import kstest
 from scipy.stats import wasserstein_distance as emd
 from skimage.feature import peak_local_max
 import matplotlib.pyplot as plt
-from plotting_fxs import mk_plots, overlaying_imshows
+from utils.plotting_fxs import mk_plots, overlaying_imshows
+from utils.convolution import conv3d
+from utils.auxs import tile2arr2
 from tqdm import tqdm
 import seaborn as sns
-from auxs import tile2arr2
 
 
 # simple script to automatically look for synapses using KS method
@@ -39,14 +40,14 @@ else:
     # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_pre_af10_a1001.pxp'
     # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/Steps_pre_AF10_a2008.pxp'
     fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/Steps_pre_AF10_a1015.pxp'
+    # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_pre_AF10_a2021.pxp'
+    # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_pre_AF10_a1034.pxp'
+    # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_pre_AF10_a1038.pxp'
     response, response_reg, stimulus, igor_info = load_pxp(fpath)
 
 # check units, dimensions & print some data
 # returns stim points matching response + scalar field coeffs for eventual transformations 
 stimulus, ijk = pxp_info(response, stimulus, igor_info, return_data=True)
-
-# simple check
-mk_plots(response.mean(axis=0), title='average')
 
 # split into activity & baseline
 steps, ixs_baseline, ixs_activity = mk_step_indexes(stimulus, split_by='activity')
@@ -65,37 +66,55 @@ def pixel_wise_comparison(arr1,arr2):
             wmap[row,col] = emd(arr1[:,row,col], arr2[:,row,col])
     return vmap, wmap
 
+# simple check
+mk_plots(response.mean(axis=0), title='average')
+mk_plots(response_reg.mean(axis=0), title='average reg')
+
+# no reg
 baseline = response[ixs_baseline]
 rx = response[ixs_activity]
 ks_map, emd_map = pixel_wise_comparison(baseline,rx)
+# reg
+baseline_reg = response_reg[ixs_baseline]
+reg = response_reg[ixs_activity]
+ks_regmap, emd_regmap = pixel_wise_comparison(baseline_reg,reg)
 
-mk_plots(ks_map, title='ks_map')
-mk_plots(emd_map, title='emd_map')
+mk_plots(ks_map, title='ks map')
+mk_plots(ks_regmap, title='ks reg map')
+mk_plots(emd_map, title='emd map')
+mk_plots(emd_regmap, title='emd reg map')
 
 
-# TODO: overley in red
 # look for maxima
 def get_maxima(arr, min_distance=1, num_peaks=50,title=''):
     maxima = peak_local_max(arr, min_distance=min_distance, num_peaks=num_peaks)
     mask = np.zeros((arr.shape))
     for mr,mc in maxima:
         mask[mr,mc] = arr[mr,mc]
+    title = f'{title} - maxima={num_peaks}'
     overlaying_imshows(arr, mask, title=title)
     overlaying_imshows(response.mean(axis=0), mask, title=title)
     return maxima, mask
 
 ks_map_maxima, ks_mask = get_maxima(ks_map, num_peaks=33, title='ks maxima')
+ks_regmap_maxima, ks_reg_mask = get_maxima(ks_regmap, num_peaks=33, title='ks reg maxima')
 emd_map_maxima, emd_mask = get_maxima(emd_map, num_peaks=33, title='emd maxima')
+emd_regmap_maxima, emd_reg_mask = get_maxima(emd_regmap, num_peaks=33, title='emd reg maxima')
 
-# look individual points distributions
-def compare_pixel_dists(arr1,arr2,row,col, arr3=[], label1='arr1', label2='arr2', label3='arr3', title=''):
-    # sns.distplot(arr1[:,row,col], label=label1)
-    # sns.distplot(arr2[:,row,col], label=label2)
+# TODO: include kurtosis value
+# plot individual points distributions: look for kurtosis
+def compare_pixel_dists(arr1,arr2,row,col, arr3=[],
+                        label1='arr1', label2='arr2', label3='arr3',
+                        title='', mk_distplots=False):
     sns.histplot(arr1[:,row,col], label=label1, kde=True)
     sns.histplot(arr2[:,row,col], label=label2, kde=True)
     if arr3:
-        # sns.distplot(arr3[:,row,col], label=label3)
         sns.histplot(arr3[:,row,col], label=label3, kde=True)
+    if mk_distplots:
+        sns.distplot(arr1[:,row,col], label=label1)
+        sns.distplot(arr2[:,row,col], label=label2)
+        if arr3:
+            sns.distplot(arr3[:,row,col], label=label3)
     plt.legend()
     plt.title(f'{title} - row = {row}, col = {col}')
     plt.show()
@@ -104,7 +123,9 @@ def compare_pixel_dists_many(arr1,arr2,pxs, arr3=[],arr4=[], label1='arr1', labe
         compare_pixel_dists(arr1,arr2,row,col, arr3=arr3,label1=label1,label2=label2,label3=label3,title=title)
         
 compare_pixel_dists_many(baseline,rx,ks_map_maxima[:5],label1='baseline',label2='response',title='ks')
+compare_pixel_dists_many(baseline_reg,reg,ks_map_maxima[:5],label1='baseline',label2='response',title='ks reg')
 compare_pixel_dists_many(baseline,rx,emd_map_maxima[:5],label1='baseline',label2='response',title='emd')
+compare_pixel_dists_many(baseline_reg,reg,emd_map_maxima[:5],label1='baseline',label2='response',title='emd reg')
 
 
 def compare_pixel_traces(arr1,arr2,row,col, label1='baseline', label2='response', title=''):
@@ -120,54 +141,43 @@ def compare_pixel_traces_many(arr1,arr2,pxs,label1='arr1', label2='arr2',title='
 
 compare_pixel_traces_many(baseline,rx,ks_map_maxima[:5],label1='ext baseline',label2='response',title='ks')
 compare_pixel_traces_many(baseline,rx,emd_map_maxima[:5],label1='ext baseline',label2='response',title='emd')
+compare_pixel_dists_many(baseline_reg,reg,ks_map_maxima[:5],label1='ext baseline',label2='response',title='ks reg')
+compare_pixel_dists_many(baseline_reg,reg,emd_map_maxima[:5],label1='ext baseline',label2='response',title='emd reg')
 
 
-
-
-# apply 2D filter to every slice in the stack & get temp local maxima
-baseline_reg = response_reg[ixs_baseline]
-reg = response_reg[ixs_activity]
-ks_regmap, emd_regmap = pixel_wise_comparison(baseline_reg,reg)
+# all together (normalized)
 
 ks_map /= ks_map.max()
 emd_map /= emd_map.max()
 ks_regmap /= ks_regmap.max()
 emd_regmap /= emd_regmap.max()
 
-plt.imshow(ks_regmap)
-plt.show()
-plt.imshow(emd_regmap)
-plt.show()
-
-ks_regmap_maxima, ks_regmap_mask = get_maxima(ks_regmap, num_peaks=33)
-emd_regmap_maxima, emd_regmap_mask = get_maxima(emd_regmap, num_peaks=33)
-
 mk_plots([ks_map,ks_regmap,emd_map,emd_regmap],title='proj maps',
          subtitles=['ks','ks reg','emd','emd reg'],normalize=True)
 
 
-compare_pixel_dists_many(baseline_reg,reg,ks_map_maxima[:5],label1='ext baseline',label2='response',title='ks reg')
-compare_pixel_dists_many(baseline_reg,reg,emd_map_maxima[:5],label1='ext baseline',label2='response',title='emd reg')
-compare_pixel_traces_many(baseline_reg,reg,ks_map_maxima[:5],label1='ext baseline',label2='response',title='ks')
-compare_pixel_traces_many(baseline_reg,reg,emd_map_maxima[:5],label1='ext baseline',label2='response',title='emd')
+# TODO GAUSS2D:
+# apply 2D filter to every slice in the stack & get temp local maxima
 
+# synapse based kernel convolution (synapse size + iGlusniffer dynamics)
 
+cx = conv3d(rx)
+baseline_cx = conv3d(baseline)
+cx_reg = conv3d(reg)
+baseline_cx_reg = conv3d(baseline_reg,)
 
+cx_ks_map, cx_emd_map = pixel_wise_comparison(baseline_cx,cx)
+cxreg_ks_map, cxreg_emd_map = pixel_wise_comparison(baseline_cx_reg,cx_reg)
 
+mk_plots(cx_ks_map, title='cx ks map')
+mk_plots(cxreg_ks_map, title='cx ks reg map')
+mk_plots(cx_emd_map, title='cx emd map')
+mk_plots(cxreg_emd_map, title='cx emd reg map')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+ks_map_maxima, ks_mask = get_maxima(cx_ks_map, num_peaks=33, title='cx ks maxima')
+ks_regmap_maxima, ks_reg_mask = get_maxima(cxreg_ks_map, num_peaks=33, title='cx ks reg maxima')
+emd_map_maxima, emd_mask = get_maxima(cx_emd_map, num_peaks=33, title='cx emd maxima')
+emd_regmap_maxima, emd_reg_mask = get_maxima(cxreg_emd_map, num_peaks=33, title='cx emd reg maxima')
 
 
 

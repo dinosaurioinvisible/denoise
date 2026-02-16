@@ -5,7 +5,7 @@ import os
 import numpy as np
 from igor2 import packed
 import platform
-from auxs import string_as_list
+from utils.auxs import string_as_list
 
 
 # to load igor experiment
@@ -158,11 +158,15 @@ def pxp_info(response,stimulus, igor_info=None,return_data=False):
         print(f'frame physical size = {frame_dim:.2f}')
         pixel_dx /= zoom
         pixel_dy /= zoom
-        print('upper bound? synaptic button area: 2x2 µms')
+        synapse_dx, synapse_dy = 2.5, 2.5
+        print(f'synaptic button approx. area: {synapse_dx} x {synapse_dy} µms')
         print(f'pixel height physical size = {pixel_dy:.2f} x {pixel_dx:.2f} µm')
+        dxpx = synapse_dx/pixel_dx
+        dypy = synapse_dy/pixel_dy
+        print(f' => approx. pixel patch needed for a synapse: {dypy:.2f} x {dxpx:.2f}')
         print()
-    
-    
+
+
     if return_data:
         # match stimulus to every response sampling point
         stimulus_rx = stimulus[::int(sample_freq)]
