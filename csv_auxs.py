@@ -14,15 +14,7 @@ fpath = os.path.join(dir_path,fname)
 def match_csv_rows(fpath,movie=[],nframes=0,with_pandas=False,return_df=False):
     df = pd.read_csv(fpath)
     dirpath, fname = get_dir_file_path(fpath)
-    # pandas is slower
-    if with_pandas:
-        idxs = [0]
-        for i in range(1,len(df)-1):
-            if df.iloc[i]['Timestamp'] != df.iloc[i-1]['Timestamp']:
-                idxs.append(i)
-        df2 = pd.DataFrame(index=idxs, columns=df.columns)
-        # drop last lines
-    # numpy and export
+    # numpy and export (pandas is slower)
     arr = df.to_numpy()
     qp = np.array([arr[ri] for ri in range(arr.shape[0]-1) if arr[ri][6] != arr[ri+1][6]])
     if nframes:

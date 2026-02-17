@@ -58,7 +58,11 @@ def mk_plots(iims=[], rows=0, cols=0, title='', subtitles=[], normalize=False, f
     # if one image
     if not isinstance(iims, list):
         plt.title(title)
-        plt.imshow(iims)
+        if len(iims.shape) == 2:
+            plt.imshow(iims)
+        else:
+            plt.plot(iims)
+        plt.title(title)
         plt.show()
         return
     # mk subplots
@@ -78,9 +82,15 @@ def mk_plots(iims=[], rows=0, cols=0, title='', subtitles=[], normalize=False, f
         if from_palette:
             ax.imshow(palette[iims.astype(int)])
         if normalize:
-            images.append(ax.imshow(image, norm=norm))
+            if len(image.shape) == 2:
+                images.append(ax.imshow(image, norm=norm))
+            else:
+                images.append(ax.plot(image, norm=norm))
         else:
-            ax.imshow(image)
+            if len(image.shape) == 2:
+                ax.imshow(image)
+            else:
+                ax.plot(image)
     if normalize:
         fig.colorbar(images[0], ax=axs, orientation='vertical', fraction=.1)
     plt.show()
