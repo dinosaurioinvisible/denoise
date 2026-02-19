@@ -26,6 +26,32 @@ palette = np.array([[255, 255, 255],   # 0:white
                     [  0,   0,   0]])  # 9:black
 
 
+
+def simple_plot(arr, arr2=None, title='', mk_cbar=False):
+    if isinstance(arr2,np.ndarray):
+        if mk_cbar:
+            im = plt.plot(arr,arr2)
+            plt.colorbar(im, orientation='horizontal')
+        else:
+            plt.plot(arr,arr2)
+    elif len(arr.shape) == 1:
+        if mk_cbar:
+            im = plt.plot(arr)
+            plt.colorbar(im, orientation='horizontal')
+        else:
+            plt.plot(arr)
+    elif len(arr.shape) == 2:
+        if mk_cbar:
+            im = plt.imshow(arr)
+            plt.colorbar(im, orientation='horizontal')
+        else:
+            plt.imshow(arr)
+    else:
+        print('\ncouldn\'t interpret data as plot')
+        return
+    plt.title(title)
+    plt.show()
+
 # for plotting specific sparse points on top a background image
 # uses 2 colormaps
 def overlaying_imshows(background,mask1,mask2=[],title='',xlabel='',ylabel='',cbar2_label=''):
@@ -162,6 +188,12 @@ def animated_imshow(arr, title=''):
         return im
     
     
+def plot_in_seconds(arr,freq,title=''):
+    nframes = arr.size
+    x = np.linspace(0,nframes/freq,nframes)
+    plt.plot(x,arr)
+    plt.title(title)
+    plt.show()
     
     
     

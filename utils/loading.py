@@ -5,7 +5,7 @@ import os
 import numpy as np
 from igor2 import packed
 import platform
-from auxs import string_as_list
+from utils.auxs import string_as_list
 
 
 # to load igor experiment
@@ -44,7 +44,7 @@ def load_pxp(path):
         console_info = console_info.split('\n')[1:5]
         for ci in console_info:
             k,v = ci.split(' was ')
-            k = k.replace(' ','')
+            k = k.lstrip().rstrip()
             info[k] = v
         return response, response_reg, stimulus, info
 
@@ -104,75 +104,107 @@ def load_waves_from_igor_exp(exp_path, all_waves=False):
 
 def pxp_info(response,stimulus, igor_info=None,return_data=False):
     print()
+    data = {}
     # msPerLine = samples / number of lines / number of frames
     msPerLine = stimulus.size/response.shape[1]/response.shape[0]
     msPerFrame = msPerLine * response.shape[1]
-    print(f'msPerLine = {msPerLine}')
-    print(f'msPerFrame = {msPerFrame}')
-    # to seconds
     linesPerSec = msPerLine/1000
     framesPerSec = msPerFrame/1000
-    print('in seconds:')
+    data['msPerLine'] = msPerLine
+    data['msPerFrame'] = msPerFrame
+    data['linesPerSec'] = linesPerSec
+    data['framesPerSec'] = framesPerSec
+    print(f'msPerLine = {msPerLine}')
     print(f'linesPerSec = {linesPerSec}')
+    print(f'msPerFrame = {msPerFrame}')    
     print(f'framesPerSec = {framesPerSec}')
-    print(f' => sampling rate = {framesPerSec} Hz')
+    freq = 1/framesPerSec
+    data['frequency'] = freq
+    print(f' => sampling rate (frequency) = {freq} [Hz]')
 
     # sanity check: get response freq => sample_freq = msPerFrame
-    sample_freq = stimulus.shape[0]/response.shape[0]
-    print(f'stimulus points = {stimulus.size}')
+    stimulusDataPoints = stimulus.size
+    data['stimulusDataPoints'] = stimulusDataPoints
+    print(f'\nstimulus points = {stimulusDataPoints}')
     # experiment duration (in seconds)
     exp_duration = stimulus.size/1000
+    data['experimentDuration'] = exp_duration
     print(f' => experiment duration: {exp_duration} [s]')
     # sampling frequency
+    responseDataPoints = response.shape[0]
+    data['responseDataPoints'] = responseDataPoints
+    samplingRate = stimulusDataPoints/responseDataPoints
+    # same as frequency, but just to 2ble check
+    data['samplingRate'] = samplingRate
     print(f'response datapoints = {response.shape[0]}')
-    print(f' => 1 sample every {sample_freq} [ms]')
+    print(f' => 1 sample every {samplingRate} [ms]')
     
     # check pixel dimensions
     print()
     fov = 610
     nframes, rows, cols = response.shape
+    data['fov'] = fov
+    data['nframes'] = nframes
+    data['rows'] = rows
+    data['cols'] = cols
     print(f'field of vision (FOV): {fov} (Do check this!)')
     print(f'rows = {rows}, cols = {cols}')
     pixel_dx = fov/cols
     pixel_dy = fov/rows
     pixel_dt = exp_duration/nframes
-    print(f'pixel width = {pixel_dx} [µm]')
-    print(f'pixel heigh = {pixel_dy} [µm]')
+    print(f'pixel width at zoom 1.0 = {pixel_dx} [µm]')
+    print(f'pixel heigh at zoom 1.0 = {pixel_dy} [µm]')
     print(f'pixel dt = {pixel_dt} [s]')
     if cols > rows:
         print(f'so information density is {cols/rows} higher in X than in Y')
     # for transformations
-    print('for scalar field transformations: I(x_i, y_j, t_k)')
-    print(f'x_i = i * {pixel_dx}')
-    print(f'y_j = j * {pixel_dy}')
-    print(f't_k = k * {pixel_dt}')
-    print()
+    # print('for scalar field transformations: I(x_i, y_j, t_k)')
+    # print(f'x_i = i * {pixel_dx}')
+    # print(f'y_j = j * {pixel_dy}')
+    # print(f't_k = k * {pixel_dt}')
+    # print()
     
     # info from igor console
     if isinstance(igor_info, dict):
-        print('igor info:')
+        print('\nIgor info:')
         for k,v in igor_info.items():
             print(f' {k}: {v}')
         zoom = float(igor_info['zoom'])
         frame_dim = fov/zoom
-        print(f'frame physical size = {frame_dim:.2f}')
+        data['zoom'] = zoom
+        data['frameSide'] = frame_dim
+        print(f'frame side physical size = {frame_dim:.2f} [µm]')
         pixel_dx /= zoom
         pixel_dy /= zoom
-        synapse_dx, synapse_dy = 2.5, 2.5
+        data['pixel_dx'] = pixel_dx
+        data['pixel_dy'] = pixel_dy
+        data['pixel_dt'] = pixel_dt
+        print(f'pixel physical height & width = {pixel_dy:.2f} x {pixel_dx:.2f} µm')
+        # synapse_dx, synapse_dy = 2.5, 2.5     # retina
+        synapse_dx, synapse_dy = 1.5, 1.5       # tectum
+        data['synapse_dx'] = synapse_dx
+        data['synapse_dy'] = synapse_dy
         print(f'synaptic button approx. area: {synapse_dx} x {synapse_dy} µms')
-        print(f'pixel height physical size = {pixel_dy:.2f} x {pixel_dx:.2f} µm')
         dxpx = synapse_dx/pixel_dx
         dypy = synapse_dy/pixel_dy
-        print(f' => approx. pixel patch needed for a synapse: {dypy:.2f} x {dxpx:.2f}')
+        data['ncolsPerSynapse'] = dypy
+        data['nrowsPerSynapse'] = dxpx
+        print(' => approx. pixel patch needed for a synapse:')
+        sxpx = pixel_dx/synapse_dx
+        sypy = pixel_dy/synapse_dy
+        data['nSynapsesPerCol'] = sypy
+        data['nSynapsesPerRow'] = sxpx
+        print(f'cols per synapse: {dypy:.2f} <-> {sypy:.2f} synapses per cols')
+        print(f'rows per synapse: {dxpx:.2f} <-> {sxpx:.2f} synapses per rows')
         print()
 
 
     if return_data:
         # match stimulus to every response sampling point
-        stimulus_rx = stimulus[::int(sample_freq)]
+        stimulus_rx = stimulus[::int(samplingRate)]
         # eventually for transformations
-        ijk = np.array([pixel_dx, pixel_dy, pixel_dt])
-        return stimulus_rx , ijk
+        # ijk = np.array([pixel_dx, pixel_dy, pixel_dt])
+        return stimulus_rx, data
 
 
 # simple window menu (returns None if quit)

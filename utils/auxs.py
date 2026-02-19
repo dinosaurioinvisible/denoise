@@ -10,6 +10,10 @@ import tifffile as tf
 import re
 
 
+# returns time points [s] for datapoints 
+def datapoints_in_seconds(arr,freq):
+    return np.linspace(0,arr.size/freq,arr.size)
+
 # just to avoid writing the same always
 def mk_sep():
     sep = '\\' if platform.system() == 'Windows' else '/'
