@@ -29,7 +29,7 @@ def load_pxp(path):
                 fpath = os.path.join(os.getcwd(),filename)
     if not fpath:
         print('\ncouldn\'t find .pxp\n')
-        fpath = file_menu(ext='tif, tiff, pxp')
+        fpath = file_menu(file_ext='tif, tiff, pxp')
         return
     # 2) try to load igor exp
     if fpath:

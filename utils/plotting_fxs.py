@@ -26,8 +26,38 @@ palette = np.array([[255, 255, 255],   # 0:white
                     [  0,   0,   0]])  # 9:black
 
 
+def mk_raster_plot(arr, locs, stimulus=None, title='', mk_cbar=True):
+    raster = np.zeros((locs.shape[0],arr.shape[0]))
+    for ei,(row,col) in enumerate(locs):
+        raster[ei] = arr[:,row,col]
+    if isinstance(stimulus,np.ndarray):
+        f, (a0,a1) = plt.subplots(2,1, gridspec_kw={'height_ratios': [1,7]})
+        a0.plot(stimulus)
+        a0.set_xlim(xmin=0, xmax=stimulus.size)
+        a0.set_xticks([])
+        a0.set_yticks([])
+        im = a1.imshow(raster, aspect='auto')
+        a1.set_ylim(ymax=0, ymin=locs.shape[0]-1)
+        a1.set_xticks(np.arange(0,stimulus.size+1,150))
+        a1.set_yticks(np.arange(0,locs.shape[0],5))
+        if mk_cbar:
+            plt.colorbar(im, orientation='horizontal')
+        plt.suptitle(title)
+        plt.show()
+        plt.tight_layout()
+    else:
+        simple_plot(raster, mk_cbar=mk_cbar, title=title, aspect='auto')
+    return raster
 
-def simple_plot(arr, arr2=None, title='', mk_cbar=False):
+
+def simple_plot(arr, arr2=None, title='', mk_cbar=False, size=[], aspect='equal'):
+    if isinstance(size,int):
+        plt.figure(figsize=(size,size))
+    elif len(size)==2:
+        ysize, xsize = size
+        plt.figure(figsize=(ysize,xsize))
+    else:
+        pass
     if isinstance(arr2,np.ndarray):
         if mk_cbar:
             im = plt.plot(arr,arr2)
@@ -49,6 +79,7 @@ def simple_plot(arr, arr2=None, title='', mk_cbar=False):
     else:
         print('\ncouldn\'t interpret data as plot')
         return
+    plt.gca().set_aspect(aspect)
     plt.title(title)
     plt.show()
 
@@ -117,8 +148,12 @@ def mk_plots(iims=[], rows=0, cols=0, title='', subtitles=[], normalize=False, f
                 ax.imshow(image)
             else:
                 ax.plot(image)
+                ax.set_xlim(xmin=0,xmax=image.size)
+                if ei != len(iims)-1:
+                    ax.set_xticks([])
     if normalize:
         fig.colorbar(images[0], ax=axs, orientation='vertical', fraction=.1)
+    plt.tight_layout()
     plt.show()
 
 

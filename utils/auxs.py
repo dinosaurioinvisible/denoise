@@ -10,6 +10,15 @@ import tifffile as tf
 import re
 
 
+# returns n highest values of an array
+def get_max_indexes(arr,n=5):
+    maxs = np.argsort(arr.ravel())[-n:]
+    ixs = []
+    for i in maxs:
+        x = np.unravel_index(i, shape=arr.shape)
+        ixs.append(x)
+    return np.array(ixs)
+
 # returns time points [s] for datapoints 
 def datapoints_in_seconds(arr,freq):
     return np.linspace(0,arr.size/freq,arr.size)

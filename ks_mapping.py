@@ -20,18 +20,18 @@ import seaborn as sns
 # load: raw, registered & stimulus
 if system() == 'Windows':
     fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a1\\steps_pre_AF10_a1001.pxp'
-    fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a2\\Steps_pre_AF10_a2008.pxp'
-    fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A1\\Steps_pre_AF10_a1015.pxp'
-    fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A2\\steps_pre_AF10_a2021.pxp'
-    fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F3_glut_HUC_AF10\\a1\\steps_pre_AF10_a1034.pxp'
-    fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F3_glut_HUC_AF10\\a2\\steps_pre_AF10_a1038.pxp'
-    fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F4_glut_HUC_AF10\\A1\\step_AF10_a1001.pxp'
-    fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F4_glut_HUC_AF10\\A2\\step_AF10_a2006.pxp'
-    fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F5_glut_HUC_AF10\\A1\\STEP_AF10_a1012.pxp'
-    fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F5_glut_HUC_AF10\\A2\\STEP_AF10_a2017.pxp'
-    fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F6_glut_HUC_AF10\\a1\\steps_pre_AF10_a1029.pxp'
-    fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F6_glut_HUC_AF10\\a2\\steps_pre_AF10_a1034.pxp'
-    fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F7_glut_HUC_AF10\\steps_pre_AF10_a1039.pxp'
+    # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a2\\Steps_pre_AF10_a2008.pxp'
+    # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A1\\Steps_pre_AF10_a1015.pxp'
+    # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A2\\steps_pre_AF10_a2021.pxp'
+    # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F3_glut_HUC_AF10\\a1\\steps_pre_AF10_a1034.pxp'
+    # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F3_glut_HUC_AF10\\a2\\steps_pre_AF10_a1038.pxp'
+    # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F4_glut_HUC_AF10\\A1\\step_AF10_a1001.pxp'
+    # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F4_glut_HUC_AF10\\A2\\step_AF10_a2006.pxp'
+    # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F5_glut_HUC_AF10\\A1\\STEP_AF10_a1012.pxp'
+    # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F5_glut_HUC_AF10\\A2\\STEP_AF10_a2017.pxp'
+    # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F6_glut_HUC_AF10\\a1\\steps_pre_AF10_a1029.pxp'
+    # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F6_glut_HUC_AF10\\a2\\steps_pre_AF10_a1034.pxp'
+    # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F7_glut_HUC_AF10\\steps_pre_AF10_a1039.pxp'
     # response = tf.imread('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_pre_AF10_a1001.tif')
     # response_reg = tf.imread('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_pre_AF10_a1001_Ch1_reg.tif')
     # stimulus = read_itx('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_timewave.itx')
@@ -111,7 +111,7 @@ emd_maxima_reg, emd_reg_mask = get_maxima(emd_regmap, num_peaks=33, title='emd r
 # plot individual points distributions: look for kurtosis
 def compare_pixel_dists(arr1,arr2,row,col, arr3=[],
                         label1='arr1', label2='arr2', label3='arr3',
-                        title='', mk_distplots=False):
+                        title='', mk_distplots=True):
     sns.histplot(arr1[:,row,col], label=label1, kde=True)
     sns.histplot(arr2[:,row,col], label=label2, kde=True)
     if arr3:
@@ -131,10 +131,10 @@ def compare_pixel_dists_many(arr1,arr2,pxs, arr3=[],arr4=[], label1='arr1', labe
     for row,col in pxs:
         compare_pixel_dists(arr1,arr2,row,col, arr3=arr3,label1=label1,label2=label2,label3=label3,title=title)
 
-# compare_pixel_dists_many(baseline,rx,ks_maxima[:5],label1='baseline',label2='response',title='ks')
-# compare_pixel_dists_many(baseline_reg,reg,ks_maxima_reg[:5],label1='baseline',label2='response',title='ks reg')
-# compare_pixel_dists_many(baseline,rx,emd_maxima[:5],label1='baseline',label2='response',title='emd')
-# compare_pixel_dists_many(baseline_reg,reg,emd_maxima_reg[:5],label1='baseline',label2='response',title='emd reg')
+compare_pixel_dists_many(baseline,rx,ks_maxima[:5],label1='baseline',label2='response',title='ks')
+compare_pixel_dists_many(baseline_reg,reg,ks_maxima_reg[:5],label1='baseline',label2='response',title='ks reg')
+compare_pixel_dists_many(baseline,rx,emd_maxima[:5],label1='baseline',label2='response',title='emd')
+compare_pixel_dists_many(baseline_reg,reg,emd_maxima_reg[:5],label1='baseline',label2='response',title='emd reg')
 
 
 def compare_pixel_traces(arr1,arr2,row,col, label1='baseline', label2='ext response', title=''):
@@ -165,10 +165,10 @@ def compare_traces(arr1,row1,col1,arr2,row2,col2,
         plt.show()
     
 
-# compare_pixel_traces_many(baseline,rx,ks_maxima[:5],label1='ext baseline',label2='response',title='ks')
-# compare_pixel_traces_many(baseline,rx,emd_maxima[:5],label1='ext baseline',label2='response',title='emd')
-# compare_pixel_dists_many(baseline_reg,reg,ks_maxima_reg[:5],label1='ext baseline',label2='response',title='ks reg')
-# compare_pixel_dists_many(baseline_reg,reg,emd_map_maxima_reg[:5],label1='ext baseline',label2='response',title='emd reg')
+compare_pixel_traces_many(baseline,rx,ks_maxima[:5],label1='ext baseline',label2='response',title='ks')
+compare_pixel_traces_many(baseline,rx,emd_maxima[:5],label1='ext baseline',label2='response',title='emd')
+compare_pixel_dists_many(baseline_reg,reg,ks_maxima_reg[:5],label1='ext baseline',label2='response',title='ks reg')
+#compare_pixel_dists_many(baseline_reg,reg,emd_map_maxima_reg[:5],label1='ext baseline',label2='response',title='emd reg')
 
 
 # all together (normalized)
