@@ -152,7 +152,7 @@ def mk_plots(iims=[], rows=0, cols=0, title='', subtitles=[], normalize=False, f
                 if ei != len(iims)-1:
                     ax.set_xticks([])
     if normalize:
-        fig.colorbar(images[0], ax=axs, orientation='vertical', fraction=.1)
+        fig.colorbar(images[0], ax=axs, orientation='horizontal', fraction=.1)
     plt.tight_layout()
     plt.show()
 

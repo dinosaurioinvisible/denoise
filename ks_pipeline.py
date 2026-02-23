@@ -12,6 +12,7 @@ from skimage.feature import peak_local_max
 import matplotlib.pyplot as plt
 from utils.plotting_fxs import mk_plots, overlaying_imshows, simple_plot, mk_raster_plot
 from utils.auxs import datapoints_in_seconds, get_max_indexes
+from filters import fiji_fft_bandpass_anisotropic as fft
 from utils.improc import gauss1d, conv3d
 from tqdm import tqdm
 import seaborn as sns
@@ -48,6 +49,7 @@ else:
     # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_AF10_a2017.pxp'
     # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_AF10_a2006.pxp'
     # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_pre_AF10_a1001.pxp'
+    # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/Steps_pre_AF10_a1014.pxp'
     # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/Steps_pre_AF10_a1015.pxp'
     # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_pre_AF10_a1029.pxp'
     # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_pre_AF10_a1034.pxp'
@@ -80,7 +82,7 @@ rx_reg = response_reg[ixs_activity]
                 # kurtosis & fano factor maps
 #####################################################################
 
-def compare_kurtosis(arr0,arr1):
+def compare_kurtosis(arr0,arr1,n=5):
     if arr1.shape[1:] != arr0.shape[1:]:
         raise Exception('arrays have different shapes!')
     kurmap = np.zeros((arr1.shape[1:]))
@@ -88,25 +90,27 @@ def compare_kurtosis(arr0,arr1):
         for col in range(arr1.shape[2]):
             kur0 = kurtosis(arr0[:,row,col])
             kur1 = kurtosis(arr1[:,row,col])
-            kurmap[row,col] = (kur1-kur0)/(kur1+kur0)
+            kurmap[row,col] = (kur1-kur0)/(abs(kur1)+abs(kur0))
     rx,cx = np.where(kurmap==kurmap.max())
-    maxs = get_max_indexes(kurmap,3)
+    maxs = get_max_indexes(kurmap,n)
     for ri,ci in maxs:
         sns.distplot(arr0[:,ri,ci], label='baseline')
         sns.distplot(arr1[:,ri,ci], label='response')
         plt.legend()
-        plt.title(f'kurtosis comparison, loc: {ri}, {ci}')
+        val = kurmap[ri][ci]
+        plt.title(f'Kurtosis - loc: ({ri},{ci}), (ka-kb)/(ka+kb)={val:.2f}')
         plt.show()
+    kurmap = np.where(kurmap<0,0,kurmap)
     return kurmap
 
-rx_kurmap = compare_kurtosis(baseline,rx)
+rx_kurmap = compare_kurtosis(baseline,rx,n=4)
 # rx_reg_kurmap, rx_reg_ffmap = compare_kurtosis(baseline_reg,rx_reg)
 
 simple_plot(rx_kurmap, title='kurtosis map', mk_cbar=True)
 # simple_plot(rx_reg_kurmap, title='kurtosis reg map', mk_cbar=True)
 
 #####################################################################
-                    # image substraction
+                    # background substraction
 #####################################################################    
 
 response_sub = np.abs(response - response.mean(axis=0))
@@ -120,6 +124,11 @@ simple_plot(rx_sub.mean(axis=0), mk_cbar=True, title='background substraction ac
 
 rx_reg_sub = np.abs(rx_reg - baseline_reg.mean(axis=0))
 simple_plot(rx_reg_sub.mean(axis=0), mk_cbar=True, title='background substraction reg act/base')
+
+mk_plots([response_sub.mean(axis=0),response_reg_sub.mean(axis=0),
+          rx_sub.mean(axis=0),rx_reg_sub.mean(axis=0)],
+         subtitles=['trial sub','trial reg sub','activity sub','activity reg sub'],
+         title='background substraction')
 
 
 #####################################################################
@@ -170,7 +179,25 @@ simple_plot(ff_reg_sub_map, title='ff reg sub map', mk_cbar=True)
                     # band pass filter
 #####################################################################
 
+fft_in = 3
+fft_out = 40
 
+ks_map_fft = fft(ks_map,dx=data['pixel_dx'],dy=data['pixel_dy'],filter_small=fft_in,filter_large=fft_out)
+ks_map_fft = np.where(ks_map_fft<0,0,ks_map_fft)
+simple_plot(ks_map_fft, mk_cbar=True, title=f'ks map fft bandpass; min={fft_in}, max={fft_out}')
+
+ks_reg_map_fft = fft(ks_reg_map,dx=data['pixel_dx'],dy=data['pixel_dy'],filter_small=fft_in,filter_large=fft_out)
+ks_reg_map_fft = np.where(ks_reg_map_fft<0,0,ks_reg_map_fft)
+simple_plot(ks_reg_map_fft, mk_cbar=True, title=f'ks reg map fft bandpass; min={fft_in}, max={fft_out}')
+
+emd_map_fft = fft(emd_map,dx=data['pixel_dx'],dy=data['pixel_dy'],filter_small=fft_in,filter_large=fft_out)
+emd_map_fft = np.where(emd_map_fft<0,0,ks_map_fft)
+simple_plot(emd_map_fft, mk_cbar=True, title=f'emd map fft bandpass; min={fft_in}, max={fft_out}')
+
+
+ff_map_fft = fft(ff_map,dx=data['pixel_dx'],dy=data['pixel_dy'],filter_small=fft_in,filter_large=fft_out)
+ff_map_fft = np.where(ff_map_fft<0,0,ks_map_fft)
+simple_plot(ff_map_fft, mk_cbar=True, title=f'ff map fft bandpass; min={fft_in}, max={fft_out}')
 
 
 
@@ -195,10 +222,16 @@ ks_reg_maxima, ks_reg_mask = get_maxima(ks_reg_map, num_peaks=npeaks, title='ks 
 ks_sub_maxima, ks_sub_mask = get_maxima(ks_sub_map, num_peaks=npeaks, title='ks sub maxima')
 ks_reg_sub_maxima, ks_reg_sub_mask = get_maxima(ks_reg_sub_map, num_peaks=npeaks, title='ks reg sub maxima')
 
+ks_fft_maxima, ks_fft_mask = get_maxima(ks_map_fft, num_peaks=npeaks, title='ks fft maxima')
+ks_fft_reg_maxima, ks_fft_reg_mask = get_maxima(ks_reg_map_fft, num_peaks=npeaks, title='ks fft reg maxima')
+
 emd_maxima, emd_mask = get_maxima(emd_map, num_peaks=npeaks, title='emd maxima')
 emd_reg_maxima, emd_reg_mask = get_maxima(emd_reg_map, num_peaks=npeaks, title='emd reg maxima')
 emd_sub_maxima, emd_sub_mask = get_maxima(emd_sub_map, num_peaks=npeaks, title='emd sub maxima')
 emd_reg_sub_maxima, emd_reg_sub_mask = get_maxima(emd_reg_sub_map, num_peaks=npeaks, title='emd reg sub maxima')
+
+# emd_fft_maxima, emd_mask = get_maxima(emd_map_fft, num_peaks=npeaks, title='emd fft maxima')
+# emd_reg_fft_maxima, emd_reg_fft_mask = get_maxima(emd_reg_map_fft, num_peaks=npeaks, title='emd reg fft maxima')
 
 ff_maxima, ff_mask = get_maxima(ff_map, num_peaks=npeaks, title='ff maxima')
 ff_reg_maxima, ff_reg_mask = get_maxima(ff_reg_map, num_peaks=npeaks, title='ff reg maxima')
@@ -222,6 +255,9 @@ ks_reg_raster = mk_raster_plot(rx_reg, ks_reg_maxima, stimulus=stim, title='ks r
 ks_sub_raster = mk_raster_plot(rx_sub, ks_sub_maxima, stimulus=stim, title='ks sub')
 ks_reg_sub_raster = mk_raster_plot(rx_reg_sub, ks_maxima, stimulus=stim, title='ks reg sub')
 
+ks_fft_raster = mk_raster_plot(rx, ks_fft_maxima, stimulus=stim, title='ks fft')
+ks_fft_reg_raster = mk_raster_plot(rx, ks_fft_reg_maxima, stimulus=stim, title='ks reg fft')
+
 emd_raster = mk_raster_plot(rx, emd_maxima, stimulus=stim, title='emd')
 emd_reg_raster = mk_raster_plot(rx_reg, emd_reg_maxima, stimulus=stim, title='emd reg')
 emd_sub_raster = mk_raster_plot(rx_sub, emd_sub_maxima, stimulus=stim, title='emd sub')
@@ -237,7 +273,12 @@ stim = stimulus
 ks_raster = mk_raster_plot(response, ks_maxima, stimulus=stim, title='ks')
 ks_reg_raster = mk_raster_plot(response_reg, ks_reg_maxima, stimulus=stim, title='ks reg')
 ks_sub_raster = mk_raster_plot(response_sub, ks_sub_maxima, stimulus=stim, title='ks sub')
-ks_reg_sub_raster = mk_raster_plot(response_reg_sub, ks_maxima, stimulus=stim, title='ks reg sub')
+ks_reg_sub_raster = mk_raster_plot(response_reg_sub, ks_reg_sub_maxima, stimulus=stim, title='ks reg sub')
+
+# TODO: this strangely really good, why?
+# ks_reg_sub_raster = mk_raster_plot(response_reg_sub, ks_maxima, stimulus=stim, title='ks reg sub')
+
+ks_fft = mk_raster_plot(response_reg_sub, ks_maxima, stimulus=stim, title='ks reg sub')
 
 emd_raster = mk_raster_plot(response, emd_maxima, stimulus=stim, title='emd')
 emd_reg_raster = mk_raster_plot(response_reg, emd_reg_maxima, stimulus=stim, title='emd reg')
@@ -265,23 +306,43 @@ emd_reg_sub_raster = mk_raster_plot(response_reg_sub, ff_reg_sub_maxima, stimulu
 #####################################################################
 
 
+def compare_best_traces(resp,arr1,arr2,arr3,arr4,
+                        px1=[],px2=[],px3=[],px4=[],
+                        subtitles=['','','',''],
+                        title=''):
+    traces = []
+    subs = []
+    if len(px1) == 0:
+        px1 = get_max_indexes(arr1,n=1)[0]
+    if len(px2) == 0:
+        px2 = get_max_indexes(arr2,n=1)[0]
+    if len(px3) == 0:
+        px3 = get_max_indexes(arr3,n=1)[0]
+    if len(px4) == 0:
+        px4 = get_max_indexes(arr4,n=1)[0]
+    for ei,(mrow,mcol) in enumerate([px1,px2,px3,px4]):
+        traces.append(resp[:,mrow,mcol])
+        subs.append(f'{subtitles[ei]} - row={mrow}, col={mcol}')
+    mk_plots(iims=traces, subtitles=subs, rows=len(traces), cols=1, title=title)
+    
+# compare_best_traces(response,ks_map,emd_map,ff_map,ff_map, subtitles=['ks','emd','ff','x'],title='response')
 
-def compare_best_traces(resp,locs,subtitles=[],title='',npeaks=1):
-    for i in range(npeaks):
-        traces = []
-        peaks = [loc[i] for loc in locs]
-        subt_plus = []
-        for ei,(mrow,mcol) in enumerate(peaks):
-            traces.append(resp[:,mrow,mcol])
-            subt_plus.append(f'{subtitles[ei]} - row={mrow}, col={mcol}')
-        title_plus = f'{title} best = {subtitles[i]}'
-        mk_plots(iims=traces, subtitles=subt_plus, rows=len(locs), cols=1, title=title_plus)
+def multiple_best_traces(resp,arr1,arr2,arr3,arr4,n=5,subtitles=[],title=''):
+    maxs1 = get_max_indexes(arr1,n=n)
+    maxs2 = get_max_indexes(arr2,n=n)
+    maxs3 = get_max_indexes(arr3,n=n)
+    maxs4 = get_max_indexes(arr4,n=n)
+    for i in range(n):
+        compare_best_traces(response,arr1,arr2,arr3,arr4, 
+                            px1=maxs1[i], px2=maxs2[i], px3=maxs3[i], px4=maxs4[i],
+                            subtitles=subtitles,
+                            title=title)
+    
+multiple_best_traces(response,ks_map,ks_reg_map,ks_sub_map,ks_map_fft, subtitles=['ks','ks reg','ks sub','ks fft'],title='ks projection')
 
-compare_best_traces(response,[ks_maxima,emd_maxima,ff_maxima,ff_maxima], subtitles=['ks','emd','ff','x'],title='response')
-compare_best_traces(response,[ks_reg_maxima,emd_reg_maxima,ff_reg_maxima,ff_maxima], subtitles=['ks','emd','ff','x'],title='reg')
-compare_best_traces(response,[ks_sub_maxima,emd_sub_maxima,ff_sub_maxima,ff_maxima], subtitles=['ks','emd','ff','x'],title='sub')
-compare_best_traces(response,[ks_reg_sub_maxima,emd_reg_sub_maxima,ff_reg_sub_maxima,ff_maxima], subtitles=['ks','emd','ff','x'],title='reg sub')
+multiple_best_traces(response,emd_map,emd_reg_map,emd_sub_map,emd_map_fft, subtitles=['emd','emd reg','emd sub','emd fft'],title='emd projection')
 
+multiple_best_traces(response,ff_map,ff_reg_map,ff_sub_map,ff_map_fft, subtitles=['ff','ff reg','ff sub','ff fft'],title='fano factor')
 
 
 
