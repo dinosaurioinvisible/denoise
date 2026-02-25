@@ -10,7 +10,7 @@ from numpy.ma import masked_array
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from matplotlib import colors
-
+from utils.auxs import datapoints_in_seconds
 
 
 # just in case, to define colors manually
@@ -26,10 +26,21 @@ palette = np.array([[255, 255, 255],   # 0:white
                     [  0,   0,   0]])  # 9:black
 
 
-def mk_raster_plot(arr, locs, stimulus=None, title='', mk_cbar=True):
+def plot_in_seconds(arr,freq,title=''):
+    nframes = arr.size
+    x = np.linspace(0,nframes/freq,nframes)
+    plt.plot(x,arr)
+    plt.title(title)
+    plt.show()
+
+
+def mk_raster_plot(arr, locs, stimulus=None, title='', mk_cbar=True, in_seconds=False):
     raster = np.zeros((locs.shape[0],arr.shape[0]))
     for ei,(row,col) in enumerate(locs):
-        raster[ei] = arr[:,row,col]
+        if in_seconds:
+            raster[ei] = arr[:,row,col]
+        else:
+            raster[ei] = arr[:,row,col]
     if isinstance(stimulus,np.ndarray):
         f, (a0,a1) = plt.subplots(2,1, gridspec_kw={'height_ratios': [1,7]})
         a0.plot(stimulus)
@@ -82,6 +93,7 @@ def simple_plot(arr, arr2=None, title='', mk_cbar=False, size=[], aspect='equal'
     plt.gca().set_aspect(aspect)
     plt.title(title)
     plt.show()
+
 
 # for plotting specific sparse points on top a background image
 # uses 2 colormaps
@@ -159,30 +171,32 @@ def mk_plots(iims=[], rows=0, cols=0, title='', subtitles=[], normalize=False, f
 
 
 # plot animated imshow
-def tensor_animation(iims, rows=0, cols=0, step=100, color='gray', title='', mask=[], from_palette=False):
+def tensor_animation_subplots(iims, rows=0, cols=0, step=100, color='gray', title='', mask=[], 
+                     from_palette=False):
     # make list for subplots
     if not isinstance(iims, list):
         iims = [iims]
     # number of frames
     nf = iims[0].shape[0]
     # if only one, make copy & process later
-    if len(iims) == 1:
+    if len(iims) == 1: 
         cp = iims[0].copy()
         copy_index = 1
-        iims.append(cp)
-    # mk subplots
-    if rows + cols == 0:
-        rows = 1 if len(iims) <= 2 else 2
-        cols = 2 if len(iims) <= 2 else int(len(iims)/2) + len(iims)%2
-    fig, axs = plt.subplots(rows,cols, figsize=(10,5))
+        iims.append(cp)   
+    else:
+        if rows + cols == 0:
+            rows = 1 if len(iims) <= 2 else 2
+            cols = 2 if len(iims) <= 2 else int(len(iims)/2) + len(iims)%2
+        fig, axs = plt.subplots(rows,cols, figsize=(10,5))
     # basic vars
     ti = 0
     ims = []
     fig.suptitle(title)
     for ei,ax in enumerate(axs.flat):
         im = ax.imshow(iims[ei][ti], cmap=color, aspect='auto', animated=True)
-        # im = ax.imshow(palette[iims[ei][ti].astype(int)])
         ims.append(im)
+        if from_palette:
+            im = ax.imshow(palette[iims[ei][ti].astype(int)])
     def update_fig(ti):
         ti = (ti+1)%nf
         fig.suptitle(f'{title} {ti+1}/{nf}')
@@ -192,43 +206,85 @@ def tensor_animation(iims, rows=0, cols=0, step=100, color='gray', title='', mas
                 iims[copy_index][ti] = iims[copy_index][ti] * mask
             # import pdb; pdb.set_trace()
             if from_palette:
-                ax.imshow(palette[iims.astype(int)])
-                ims[ui].set_array(palette[iims[ui][ti].astype(int)])
+                ims[ui].set_array(palette[iims[ui][ti]])
             else:
-                ax.imshow(iims[ui][ti].astype(int))
                 ims[ui].set_array(iims[ui][ti])
         return [im for im in ims]
-    anim = animation.FuncAnimation(fig,update_fig,interval=step,blit=False,repeat=True,cache_frame_data=False)
+    anim = animation.FuncAnimation(fig, update_fig,
+                                   interval=step,blit=False,
+                                   repeat=True,
+                                   cache_frame_data=False)
     plt.show()
     plt.close()
     # return anim
-    
 
-def animated_imshow(arr, title=''):
-    # First set up the figure, the axis, and the plot element we want to animate
-    fig = plt.figure()
-    ax = plt.axes(xlim=(0, 10), ylim=(0, 10))
-    im=plt.imshow(arr[0])
-
-    # initialization function: plot the background of each frame
-    def init():
-        im.set_data(np.random.random((5,5)))
-    return im
-
-    # animation function.  This is called sequentially
-    def animate(i):
-        a=im.get_array()
-        a=a*np.exp(-0.001*i)    # exponential decay of the values
-        im.set_array(a)
-        return im
+def tensor_animation(arr, step=10, color='gray', title='', mask='',
+                     squared=True, repeat=True, blit=False):
+    # import pdb; pdb.set_trace()
+    if not isinstance(arr,np.ndarray) or len(arr.shape) != 3:
+        raise Exception('\nnon an array or invalid dimensions')
+    ti = 0
+    nf = arr.shape[0]
+    aspect = 'auto' if squared == True else 'equal'
+    fig,ax = plt.subplots()
+    im = ax.imshow(arr[ti], cmap=color, animated=True, aspect=aspect)
     
-    
-def plot_in_seconds(arr,freq,title=''):
-    nframes = arr.size
-    x = np.linspace(0,nframes/freq,nframes)
-    plt.plot(x,arr)
-    plt.title(title)
+    def update_fig(ti):
+        ti = (ti+1)%nf
+        fig.suptitle(f'{title} {ti+1}/{nf}')
+        im.set_data(arr[ti])
+        return [im]
+    anim = animation.FuncAnimation(fig, update_fig,
+                                   interval=step,
+                                   blit=blit,
+                                   repeat=repeat)
     plt.show()
+    plt.close()
+    
+
+def tensor_animation_pausable(arr, step=10, color='gray', title='', mask='',
+                     squared=True, repeat=True, blit=True):
+    if not isinstance(arr,np.ndarray) or len(arr.shape) != 3:
+        raise Exception('\nnon an array or invalid dimensions')
+    
+    nf = arr.shape[0]
+    aspect = 'auto' if squared == True else 'equal'
+    fig,ax = plt.subplots()
+    fig.suptitle("{}".format(title),ha="center",va="center")
+    time = fig.text(0.5,0.95,"",ha="center",va="center")
+    im = ax.imshow(arr[0], cmap=color, animated=True, aspect=aspect)
+
+    # to pause the animation and check data
+    anim_running = True
+    def onClick(event):
+        nonlocal anim_running
+        if anim_running:
+            anim.event_source.stop()
+            anim_running = False
+        else:
+            anim.event_source.start()
+            anim_running = True
+        movie = arr.copy()
+        print('\n\nvars: movie =  array\n')
+        import pdb; pdb.set_trace()
+    
+    def init():
+        return True
+    
+    def animate(i):
+        time.set_text("time={}/{}".format(i,nf))
+        im.set_data(arr[i])
+        return [im]
+    
+    fig.canvas.mpl_connect('button_press_event', onClick)
+    anim = animation.FuncAnimation(fig, animate,
+                                   frames=nf,
+                                   interval=step,
+                                   blit=blit,
+                                   repeat=repeat)
+    plt.show()
+    
+
     
     
     

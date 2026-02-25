@@ -94,6 +94,8 @@ def mk_step_indexes(points, sample_freq=1, delta=0.5, split_by=''):
     steps[np.where(steps[:,1]==-1),1] = steps[1:,0]
     # make indexes for base
     baseline = mk_np_indexes(np.vstack((steps[0][:2],steps[-1][:2])))
+    if not split_by:
+        return steps
     if split_by == 'activity':
         activity = mk_np_indexes(steps[np.where(steps[:,4]!=0)][:,:2])
         return steps, baseline, activity

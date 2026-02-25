@@ -237,7 +237,7 @@ def file_menu(path='',file_ext=['']):
             file_ext = string_as_list(file_ext)
         entries = []
         for fe in file_ext:
-            entries += [i for i in os.listdir() if i.endswith(file_ext)]
+            entries += [i for i in os.listdir() if i.endswith(fe)]
         entries.sort()
         print()
         for ei,entry in enumerate(entries):

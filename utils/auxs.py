@@ -8,7 +8,56 @@ import platform
 from collections import defaultdict
 import tifffile as tf
 import re
+from scipy.ndimage import zoom
 
+
+# order=1: bipolar interpolation
+def mk_squared(arr, order=1):
+    y,x = arr.shape[1:]
+    if y < x:
+        upscaled = zoom(arr, zoom=(1, x/y, 1), order=order)
+    elif y > x:
+        upscaled = zoom(arr, zoom=(1, y/x, 1), order=order)
+    return upscaled
+
+
+# makes steps from linear arr with changing values
+def mk_steps(arr, delta=0.2, start_val=1, baseline=True):
+    i0, vx = 0, start_val
+    steps = []
+    for i in range(arr.size-1):
+        if abs(arr[i+1] - arr[i]) > arr[i]*delta:
+            dx = (arr[i+1]-arr[i])/abs(arr[i+1]-arr[i])
+            # so index start, index end, step val
+            steps.append([i0, i+1, vx])
+            i0 = i+1
+            vx += dx
+    if vx != steps[-1][2]:
+        interval = steps[-1][1] - steps[-1][0]
+        steps.append([i0, i0+interval, vx])
+    if baseline:
+        # append ending
+        if steps[-1][1] < arr.size:
+            steps.append([steps[-1][1], arr.size, vx])
+    else:
+        del(steps[0])
+    return np.array(steps).astype(int)
+
+# to match 2 sets of indexes and see elements in common and not in common
+# returns shared, only in 1, only in 2
+def compare_indexes(ixs1,ixs2):
+    q1, q2 = [], []
+    for ei, (y, x) in enumerate(ixs1):
+        for ej, (yy, xx) in enumerate(ixs2):
+            if y == yy and x == xx:
+                q1.append(ei)
+                q2.append(ej)
+    pxs12 = ixs1[q1]
+    nq1 = [i for i in np.arange(ixs1.shape[0]) if i not in q1]
+    nq2 = [i for i in np.arange(ixs2.shape[0]) if i not in q2]
+    pxs1 = ixs1[nq1]
+    pxs2 = ixs2[nq2]
+    return pxs12, pxs1, pxs2
 
 # returns n highest values of an array
 def get_max_indexes(arr,n=5):
