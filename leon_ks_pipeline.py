@@ -33,7 +33,7 @@ sigma_fit = 1
 
 # good
 # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Calcium_Tectum\\111125_CA_HUC\\f1\\a1\\step_HUC_a1.tif'
-# fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A1\\Steps_pre_AF10_a1015_interpol.tif'
+fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A1\\Steps_pre_AF10_a1015_interpol.tif'
 # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A1\\Steps_pre_AF10_a1015_interpol.tif'
 # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F7_glut_HUC_AF10\\steps_pre_AF10_a1039.tif'
 # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F5_glut_HUC_AF10\\a1\\STEP_AF10_a1012.tif'
@@ -42,7 +42,7 @@ sigma_fit = 1
 # bad
 # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a1\\steps_pre_AF10_a1001.tif'
 
-fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/glu_a2/Steps_pre_AF10_a1014.tif'
+# fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/glu_a2/Steps_pre_AF10_a1014.tif'
 
 # ============================================================
 # 1. LOAD + DEINTERLEAVE + INTERPOLATE

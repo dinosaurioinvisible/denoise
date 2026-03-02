@@ -28,3 +28,87 @@ drwxr-xr-x@ 26 f  staff     832  2 Feb 21:18 pixel_sum
 -rw-r--r--@  1 f  staff  533518 28 Jan 17:08 test_timewave.itx
 drwxr-xr-x@ 10 f  staff     320 28 Feb 05:10 utils
 -rw-r--r--   1 f  staff       0 28 Feb 08:03 xtest.txt
+ Volume in drive C is OS
+ Volume Serial Number is C0E4-114E
+
+ Directory of C:\Users\Fernando\zf\denoise
+
+02/03/2026  09:09    <DIR>          .
+22/01/2026  16:53    <DIR>          ..
+19/02/2026  13:53            12,292 .DS_Store
+23/02/2026  10:08    <DIR>          .ipynb_checkpoints
+23/02/2026  14:33    <DIR>          .virtual_documents
+06/02/2026  16:46            55,381 a1001.png
+23/02/2026  19:20             1,115 animate_tiff.py
+11/02/2026  10:28            10,918 bin.py
+26/01/2026  08:59             2,260 caiman_reg.py
+21/01/2026  14:05             6,820 caiman_test.py
+19/02/2026  12:23             1,223 csv_auxs.py
+06/01/2026  13:48           384,849 deepcad running time analysis.txt
+26/01/2026  08:59            54,162 dp46-30.png
+09/02/2026  18:35               526 emd_mapping.py
+26/01/2026  08:59    <DIR>          fiji macros
+23/02/2026  09:12             2,008 filters.py
+11/02/2026  21:38             3,326 gauss2d.py
+13/01/2026  14:37            41,589 glueSniffer4.ipf
+25/02/2026  14:51            17,056 igor_connection.py
+02/03/2026  11:59             2,001 igor_fxs.py
+16/02/2026  10:57    <DIR>          ipf fixes
+02/03/2026  09:09            10,774 ks_mapping.py
+02/03/2026  09:09            13,753 ks_method.py
+02/03/2026  09:09            20,574 ks_pipeline.py
+02/03/2026  11:28            13,504 leon_ks_pipeline.py
+19/02/2026  13:53             2,388 LoadingImagesSuite2P.ipf
+04/02/2026  10:56    <DIR>          pixel_sum
+14/01/2026  11:51               425 preproc.ipf
+02/03/2026  09:09             2,571 pythonCall.ipf
+06/01/2026  13:48                11 readme.md
+13/02/2026  14:17            15,831 temp_prof.py
+28/01/2026  11:22           593,526 test_timewave.itx
+02/03/2026  09:09    <DIR>          utils
+02/03/2026  09:09             1,746 xtest.txt
+02/03/2026  09:29    <DIR>          __pycache__
+              26 File(s)      1,270,629 bytes
+               9 Dir(s)  3,253,236,682,752 bytes free
+ Volume in drive C is OS
+ Volume Serial Number is C0E4-114E
+
+ Directory of C:\Users\Fernando\zf\denoise
+
+02/03/2026  09:09    <DIR>          .
+22/01/2026  16:53    <DIR>          ..
+19/02/2026  13:53            12,292 .DS_Store
+23/02/2026  10:08    <DIR>          .ipynb_checkpoints
+23/02/2026  14:33    <DIR>          .virtual_documents
+06/02/2026  16:46            55,381 a1001.png
+23/02/2026  19:20             1,115 animate_tiff.py
+11/02/2026  10:28            10,918 bin.py
+26/01/2026  08:59             2,260 caiman_reg.py
+21/01/2026  14:05             6,820 caiman_test.py
+19/02/2026  12:23             1,223 csv_auxs.py
+06/01/2026  13:48           384,849 deepcad running time analysis.txt
+26/01/2026  08:59            54,162 dp46-30.png
+09/02/2026  18:35               526 emd_mapping.py
+26/01/2026  08:59    <DIR>          fiji macros
+23/02/2026  09:12             2,008 filters.py
+11/02/2026  21:38             3,326 gauss2d.py
+13/01/2026  14:37            41,589 glueSniffer4.ipf
+25/02/2026  14:51            17,056 igor_connection.py
+02/03/2026  11:59             2,001 igor_fxs.py
+16/02/2026  10:57    <DIR>          ipf fixes
+02/03/2026  09:09            10,774 ks_mapping.py
+02/03/2026  09:09            13,753 ks_method.py
+02/03/2026  09:09            20,574 ks_pipeline.py
+02/03/2026  11:28            13,504 leon_ks_pipeline.py
+19/02/2026  13:53             2,388 LoadingImagesSuite2P.ipf
+04/02/2026  10:56    <DIR>          pixel_sum
+14/01/2026  11:51               425 preproc.ipf
+02/03/2026  09:09             2,571 pythonCall.ipf
+06/01/2026  13:48                11 readme.md
+13/02/2026  14:17            15,831 temp_prof.py
+28/01/2026  11:22           593,526 test_timewave.itx
+02/03/2026  09:09    <DIR>          utils
+02/03/2026  12:03             3,726 xtest.txt
+02/03/2026  09:29    <DIR>          __pycache__
+              26 File(s)      1,272,609 bytes
+               9 Dir(s)  3,253,237,039,104 bytes free

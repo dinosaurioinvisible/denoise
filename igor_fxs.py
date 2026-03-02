@@ -52,13 +52,17 @@ if __name__ == "__main__":
     debug = True
     for arg in sys.argv:
         debug = True if arg == '--debug' or arg == '-d' else debug
-    # test_fx(path_to_movie=path_to_movie, debug=debug)
+    if debug:
+        test_fx(path_to_movie=path_to_movie, debug=debug)
+        import pdb; pdb.set_trace()
     # here you can call any other function
-    x = KS_pipeline(path_to_movie)
+    x = KS_pipeline(path_to_movie, debug=debug)
 
 
 
 
+# string path_to_python_script = "C:\Users\Fernando\zf\denoise\igor_fxs.py"
+# string path_to_movie = "C:\\Users\\Fernando\\Desktop\\Steps_pre_AF10_a1015.tif"
 
 
 
