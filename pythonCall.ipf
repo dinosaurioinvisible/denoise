@@ -1,113 +1,89 @@
 ﻿#pragma TextEncoding = "UTF-8"
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
 
-// this just executes a python script from the terminal
-Function RunPythonScriptOnMovie(string path_to_python_script, string path_to_movie)
+
+Function RunPythonScriptOnMovie(string path_to_python, string path_to_python_script, string path_to_movie)
+	// run python script from terminal
+	string platform = IgorInfo(2)
+	if (CmpStr(platform, "Windows") == 0) 
+		RunPythonScriptOnMovieWindows(path_to_python_script, path_to_movie)
+	else
+		RunPythonScriptOnMovieMacOs(path_to_python, path_to_python_script, path_to_movie)
+	endif
+	// open files in new folder in igor
+	loader()
+End
+
+
+// this just executes a python script from the terminal - windows only
+Function RunPythonScriptOnMovieWindows(string path_to_python_script, string path_to_movie)
 	ExecuteScriptText/B "python "+path_to_python_script+" "+path_to_movie
 End
 
-print GetWavesDataFolder(steps_pre_AF10_a1001, 0)
 
-
-// modification of load movie()
-Function LoadAndGetMovieInfo()
-
-String ImgWaveName, FirstWave, FileName, FNTrunc, FNNum, FNPath, StrNum
-	string  header, s_info = "No header info available\r"
-	Variable PointPos, startnum, cont = 1, newframes,currentframes, frames
-	
-	ImageLoad /Q /O /C=-1
-	
-	if (v_flag == 0)
-		return "-1"
-	endif
-	
-		header = s_info
-		PointPos = strsearch(S_Filename, ".tif", 0)
-		ImgWaveName = S_FileName[0,PointPos-1]
-		FileName = S_FileName[0,PointPos-1]
-		ImgWaveName = ReplaceString("-", ImgWaveName, "_")
-		PointPos = strsearch(S_Wavenames, ";", 0)
-		FirstWave =S_Wavenames[0,PointPos-1]
-		FNPath = S_Path
-	
-		FNTrunc = FileName[0,strlen(FileName)-4]
-		
-	if (waveexists(:tw0))
-		killwaves /z tw0
-	endif
-		
-	duplicate /o/free $FirstWave, TempImage
-	killwaves /z  $FirstWave
-	
-	variable refnum
-	
-	string fn2
-	
-	Do
-		startnum +=1
-		currentframes=dimsize(TempImage,2)
-		
-		if (startnum < 10)
-			FNNum = "00"+Num2Str(startnum)
-		elseif (startnum < 100)
-			FNNum = "0"+Num2Str(startnum)
-		else
-			FNNum = Num2Str(startnum)
-		endif
-			
-		FileName = 	FnPath+FNTrunc+FNNum+".tif"
-		fn2 = 	FnPath+FNTrunc+FNNum
-		open /z=1 /r  refnum as FileName
-		
-		if (v_flag==0)
-			ImageLoad /c=-1 /n=tw /o /q FileName
-			
-			
-			PointPos = strsearch(S_Wavenames, ";", 0)
-			FirstWave =S_Wavenames[0,PointPos-1]
-			Wave sec = $firstwave
-			
-			
-			frames=dimsize(sec,2)
-			if(frames==0)
-				frames = 1
-			endif
-			
-			newframes=currentframes+frames
-			
-			redimension/n=(-1,-1,newframes) TempImage
-			
-			TempImage[][][currentframes,newframes-1] = sec[p][q][r-currentframes]
-			
-									
-			close refnum
-			killwaves $firstwave
-		else
-			cont = 0
-		endif
-		
-		
-	While(cont)
-	
-	
-	if (waveexists($ImgWaveName))
-		killwaves /z $ImgWaveName
-	endif
-	
-	
-	duplicate /o TempImage, $ImgWaveName
-	Killwaves /z $FirstWave, TempImage
-	
-	redimension /s $ImgWaveName		//convert to single precision floating point
-	
-	
-	Note $ImgWaveName, header
-	Note $ImgWaveName, "file.path="+s_path
-	Note $ImgWaveName, "file.name="+s_filename
-	
-	Print "Saved as "+ ImgWaveName
-	
-	Return ImgWaveName
+// on mac this is a pain
+function RunPythonScriptOnMovieMacOs(string path_to_python, string path_to_python_script, string path_to_movie)
+	string igorcmd
+	sprintf igorcmd, "do shell script \"%s %s %s\"", path_to_python, path_to_python_script, path_to_movie
+	print igorcmd
+   ExecuteScriptText/B/Z igorcmd
+   Print S_value
 End
 
+
+// string path_to_python = "/Users/f/vi/bin/python3"
+// string path_to_python_script = "/Users/f/Dropbox/_r66y/r66xe/denoise/igor_fxs.py"
+// string path_to_movie = "'/Users/f/Dropbox/_r66y/r66xe/2p_data/glu_a2/Steps_pre_AF10_a1014.tif"
+
+
+function loader()
+    //initialize loop variable
+    variable i=0
+    string wname,fname            //wave names and file name, respectively
+    
+    //Ask the user to identify a folder on the computer
+    getfilefolderinfo/D
+    
+    //Store the folder that the user has selected as a new symbolic path in IGOR called cgms
+        //!!!!!!!!! if you prefer a different name, change ALL instances of cgms in the function !!!!!!!!
+    newpath/O cgms S_path
+ 
+    //Create a list of all files that are .txt files in the folder. -1 parameter addresses all files.
+       // !!!!!!!!! if your files have a different extension, change .TXT below to your extension!!!!!!!!!!!!
+    string filelist= indexedfile(cgms,-1,".TXT")
+ 
+    //Begin processing the list
+    do
+        //store the ith name in the list into wname.
+        fname = stringfromlist(i,filelist)
+ 
+        //strip away ".txt" to get the name of the chromatogram, which is the file name
+                //!!!!!!!!!! change the next line if you want a different name for the waves that are created !!!!!!!!!!!!!!!
+        wname = fname[0,strlen(fname)-5]
+ 
+        //reference a wave with the name of the chromatogram.
+        wave w = $wname
+        
+        //if the referenced wave does not exist, create it.
+        if (!waveexists(w) )
+ 
+            //The /L parameter tells IGOR to load no headers, and to load the 3rd column of data (indexed as 2) only
+                        //!!!!!!!! You must change this next line to tell IGOR how to load the data in each file !!!!!!!!!!!!!!!
+            LoadWave/G/D/A=wave/P=cgms/O/L={0,0,0,2,0} stringfromlist(i,filelist)
+ 
+            //wave created is wave0. It is renamed after the chromatogram.
+            rename wave0 $wname
+ 
+            //And scaled accordingly.
+                        //!!!!!!!!! you MUST change or delete the following line according to your data's scaling or lack thereof. !!!!!!!!!!!!
+            setscale/P x,0,0.0033333,$wname
+            //Print confirmation of what was just loaded.
+            print   "Loaded "+fname
+ 
+        else 
+            //Othewise, tell the user that this chromatogram was previously loaded.
+            print   fname+" was previously loaded. Its corresponding wave exists."
+        endif
+        i += 1          //move to next file
+    while(i<itemsinlist(filelist))          //end when all files are processed.
+end
