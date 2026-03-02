@@ -88,6 +88,7 @@ def load_waves_from_igor_exp(exp_path, all_waves=False):
                 #     ch2 = v.wave['wave']
                 if all_waves:
                     waves.append([k,v.wave['wave']])
+        # import pdb; pdb.set_trace()
         # wave keys: bin_header, wave_header, wData (array), formula,
         # note (metadata), data_units, dimension_units, labels, sIndices
         if all_waves:

@@ -16,7 +16,6 @@ import seaborn as sns
 
 # simple script to automatically look for synapses using KS method
 
-
 # load: raw, registered & stimulus
 if system() == 'Windows':
     fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a1\\steps_pre_AF10_a1001.pxp'
@@ -46,7 +45,7 @@ else:
     response, response_reg, stimulus, igor_info = load_pxp(fpath)
 
 # check units, dimensions & print some data
-# returns stim points matching response + scalar field coeffs for eventual transformations 
+# returns stim points matching response + scalar field coeffs for eventual transformations
 stimulus, ijk = pxp_info(response, stimulus, igor_info, return_data=True)
 
 # split into activity & baseline
@@ -147,7 +146,7 @@ def compare_pixel_traces(arr1,arr2,row,col, label1='baseline', label2='ext respo
 def compare_pixel_traces_many(arr1,arr2,pxs,label1='arr1', label2='arr2',title=''):
     for row,col in pxs:
         compare_pixel_traces(arr1,arr2,row,col,label1=label1,label2=label2,title=title)
-        
+
 def compare_traces(arr1,row1,col1,arr2,row2,col2,
                    stimulus=[],stimulus_scale=100,
                    label1='arr1',label2='arr2',title='',
@@ -163,7 +162,7 @@ def compare_traces(arr1,row1,col1,arr2,row2,col2,
     if split_plots:
         mk_plots([arr1[:,row1,col1], arr2[:,row2,col2]], title=title, subtitles=[label1,label2])
         plt.show()
-    
+
 
 compare_pixel_traces_many(baseline,rx,ks_maxima[:5],label1='ext baseline',label2='response',title='ks')
 compare_pixel_traces_many(baseline,rx,emd_maxima[:5],label1='ext baseline',label2='response',title='emd')

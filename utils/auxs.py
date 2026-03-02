@@ -21,6 +21,7 @@ def mk_squared(arr, order=1):
     return upscaled
 
 
+
 # makes steps from linear arr with changing values
 def mk_steps(arr, delta=0.2, start_val=1, baseline=True):
     i0, vx = 0, start_val
@@ -28,7 +29,7 @@ def mk_steps(arr, delta=0.2, start_val=1, baseline=True):
     for i in range(arr.size-1):
         if abs(arr[i+1] - arr[i]) > arr[i]*delta:
             dx = (arr[i+1]-arr[i])/abs(arr[i+1]-arr[i])
-            # so index start, index end, step val
+            # index start, index end, step val
             steps.append([i0, i+1, vx])
             i0 = i+1
             vx += dx
@@ -41,6 +42,7 @@ def mk_steps(arr, delta=0.2, start_val=1, baseline=True):
             steps.append([steps[-1][1], arr.size, vx])
     else:
         del(steps[0])
+
     return np.array(steps).astype(int)
 
 # to match 2 sets of indexes and see elements in common and not in common
@@ -68,7 +70,7 @@ def get_max_indexes(arr,n=5):
         ixs.append(x)
     return np.array(ixs)
 
-# returns time points [s] for datapoints 
+# returns time points [s] for datapoints
 def datapoints_in_seconds(arr,freq):
     return np.linspace(0,arr.size/freq,arr.size)
 
@@ -231,7 +233,7 @@ def string_as_list(string):
         return string.split(',')
     # else (as it is)
     return [string]
-    
+
 
 # simple de-interleave
 def deinterleave(stack):

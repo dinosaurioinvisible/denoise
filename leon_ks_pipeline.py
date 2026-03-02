@@ -32,7 +32,7 @@ baseline_window_dff = (1,5)
 sigma_fit = 1
 
 # good
-fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Calcium_Tectum\\111125_CA_HUC\\f1\\a1\\step_HUC_a1.tif'
+# fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Calcium_Tectum\\111125_CA_HUC\\f1\\a1\\step_HUC_a1.tif'
 # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A1\\Steps_pre_AF10_a1015_interpol.tif'
 # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A1\\Steps_pre_AF10_a1015_interpol.tif'
 # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F7_glut_HUC_AF10\\steps_pre_AF10_a1039.tif'
@@ -42,13 +42,16 @@ fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Calcium_Tectum\\111125_CA_HUC
 # bad
 # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F1_glut_HUC_AF10\\a1\\steps_pre_AF10_a1001.tif'
 
+fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/glu_a2/Steps_pre_AF10_a1014.tif'
+
 # ============================================================
 # 1. LOAD + DEINTERLEAVE + INTERPOLATE
 # ============================================================
 #interleaved = tiff.imread("steps_pre_AF10_a2021.tif")
 interleaved = tiff.imread(fpath)
 
-T_total, Y, X = interleaved.shape
+# T_total, Y, X = interleaved.shape
+T_total = interleaved.shape[0]
 if T_total % 2 != 0:
     raise ValueError("Interleaved movie must have even number of frames.")
 
@@ -58,15 +61,11 @@ stim_movie = interleaved[1::2]
 T = movie_raw.shape[0]
 time = np.arange(T)/fs
 
-from scipy.ndimage import zoom
-
-# order=1: bilinear interpolation
-movie_squared = zoom(movie_raw, zoom=(movie_raw.shape[2]/movie_raw.shape[1],1), order=1)
 
 # ============================================================
 # 2. REGISTRATION
 # ============================================================
-reference = movie_squared.mean(axis=0)
+reference = movie_raw.mean(axis=0)
 movie_reg = np.zeros_like(movie_raw)
 
 for i in range(T):
@@ -74,10 +73,17 @@ for i in range(T):
     movie_reg[i] = shift(movie_raw[i], shift_est)
 
 
+from scipy.ndimage import zoom
+
+# order=1: bilinear interpolation
+zoom_ratio = movie_reg.shape[2]/movie_reg.shape[1]
+movie_int = zoom(movie_reg, zoom=(1,zoom_ratio,1), order=1)
+Y, X = movie_int.shape[1:]
+
 # ============================================================
 # 3. BLEACH CORRECTION
 # ============================================================
-frame_mean = movie_reg.mean(axis=(1,2))
+frame_mean = movie_int.mean(axis=(1,2))
 
 def exp_decay(t,A,tau,C):
     return A*np.exp(-t/tau)+C
@@ -86,7 +92,7 @@ p0 = [frame_mean[0]-frame_mean[-1], T/fs/2, frame_mean[-1]]
 params,_ = curve_fit(exp_decay,time,frame_mean,p0=p0,maxfev=10000)
 fit_curve = exp_decay(time,*params)
 
-movie_corr = movie_reg / np.maximum(fit_curve[:,None,None],1e-8)
+movie_corr = movie_int / np.maximum(fit_curve[:,None,None],1e-8)
 
 # ============================================================
 # TODO: ASK LEON: not sure which points he wanted to get(?)
@@ -145,30 +151,32 @@ coords = peak_local_max(
     delta_map,
     min_distance=min_distance,
     threshold_abs=threshold_abs,
-    exclude_border=False
+    exclude_border=edge_margin
 )
 
-filtered_coords=[]
-for y0,x0 in coords:
-    if (y0>edge_margin and y0<Y-edge_margin and
-        x0>edge_margin and x0<X-edge_margin):
-        filtered_coords.append((y0,x0))
+# filtered_coords=[]
+# for y0,x0 in coords:
+#     if (y0>edge_margin and y0<Y-edge_margin and
+#         x0>edge_margin and x0<X-edge_margin):
+#         filtered_coords.append((y0,x0))
 
 # ============================================================
 # 6. KS + FDR
 # ============================================================
 pvals=[]
 peaks=[]
+
 rr_full,cc_full = np.indices((Y,X))
 
-for y0,x0 in filtered_coords:
+# for y0,x0 in filtered_coords:
+for y0,x0 in coords:
     mask = ((rr_full-y0)**2+(cc_full-x0)**2)<=roi_radius**2
-    
+
     base_vals = movie_corr[baseline_idx][:,mask].mean(axis=1)
     trans_vals = movie_corr[transition_idx][:,mask].mean(axis=1)
-    
+
     D,p = ks_2samp(base_vals,trans_vals)
-    
+
     pvals.append(p)
     peaks.append((y0,x0,D,p))
 
@@ -176,15 +184,23 @@ pvals=np.array(pvals)
 significant=[]
 
 if len(pvals)>0:
+    # sorts indices
     idx_sorted=np.argsort(pvals)
+    # sorts values
     sorted_p=pvals[idx_sorted]
+    # TODO
+    # don't understand this really:
+    # is it a procedure for p-values?
     m=len(sorted_p)
     threshold_line=alpha*np.arange(1,m+1)/m
     significant_mask=sorted_p<=threshold_line
-    
+
     if np.any(significant_mask):
+        # max index among those < threshold line
         max_i=np.where(significant_mask)[0].max()
+        # value of max index in sorted_p, so max value
         p_cutoff=sorted_p[max_i]
+        # select peaks < max p value
         for i,(y0,x0,D,p) in enumerate(peaks):
             if p<=p_cutoff:
                 significant.append((y0,x0))
@@ -198,14 +214,14 @@ for y0,x0 in significant:
     sigma_fit = sigma_fit
     rr,cc = np.indices((Y,X))
     mask = ((rr-y0)**2+(cc-x0)**2)<=roi_radius**2
-    
+
     F0 = movie_corr[baseline_idx][:,mask].mean()
     F1 = movie_corr[transition_idx][:,mask].mean()
     dff_detect = (F1-F0)/F0
-    
+
     synapses.append((y0,x0,sigma_fit,dff_detect))
 
-    # ============================================================
+# ============================================================
 # 7b. CLEAN DETECTED SYNAPSES IMAGE
 # ============================================================
 
@@ -219,13 +235,13 @@ plt.title(f"Detected Synapses (n={len(synapses)})")
 plt.axis('off')
 
 for i,(y0,x0,_,_) in enumerate(synapses, 1):
-    
+
     plt.scatter(x0, y0,
                 s=70,
                 facecolors='none',
                 edgecolors='red',
                 linewidths=1.2)
-    
+
     plt.text(x0, y0,
              str(i),
              color='yellow',
@@ -257,7 +273,7 @@ top_synapses = indexed_synapses_sorted[:5]
 ys = [y for y,_,_,_ in synapses]
 xs = [x for _,x,_,_ in synapses]
 
-margin = 6
+margin = edge_margin
 y_min = max(0, min(ys) - margin)
 y_max = min(Y, max(ys) + margin)
 x_min = max(0, min(xs) - margin)
@@ -360,14 +376,14 @@ plt.show()
 independent_traces = []
 
 for y0,x0,sigma_fit,_ in synapses:
-    
+
     rr,cc = np.indices((Y,X))
     mask = ((rr-y0)**2+(cc-x0)**2)<=roi_radius**2
-    
+
     amp = movie_corr[:,mask].mean(axis=1)
     F0 = np.median(amp[baseline_idx_dff])
     dff = (amp - F0) / F0
-    
+
     independent_traces.append(dff)
 
 independent_traces = np.array(independent_traces)

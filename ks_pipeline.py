@@ -44,7 +44,7 @@ if system() == 'Windows':
     # stimulus = read_itx('C:\\Users\\Fernando\\zf\\data\\glu_a1\\steps_timewave.itx')
     response, response_reg, stimulus, igor_info = load_pxp(fpath)
 else:
-    # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_AF10_a1001.pxp'
+    fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_AF10_a1001.pxp'
     # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_AF10_a1012.pxp'
     # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_AF10_a2017.pxp'
     # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_glu_exps/steps_AF10_a2006.pxp'
