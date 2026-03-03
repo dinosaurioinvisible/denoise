@@ -93,7 +93,7 @@ class KS_pipeline:
     def mk_names(self):
         fdir = f'{os.path.sep}'.join(self.fpath.split(os.path.sep)[:-1])
         fname = self.fpath.split(os.path.sep)[-1].split('.')[0]
-        savedir = os.path.join(fdir,'ks_method')
+        savedir = os.path.join(fdir,'python_output')
         self.savepath = os.path.join(savedir,fname)
         if not os.path.isdir(savedir):
             os.mkdir(savedir)

@@ -1,4 +1,6 @@
 
+# import pdb; pdb.set_trace()
+
 import os
 import sys
 import subprocess
@@ -14,21 +16,6 @@ from ks_method import KS_pipeline
 4. make button in igor
 5. generalize to more scripts
 '''
-
-def execute_command(command, exec_path):
-    if system() == 'Windows':
-        temp = subprocess.list2cmdline([exec_path, "-Q", "-X"])
-        subprocess.run(f'{temp} {command}')
-    else:
-        subprocess.run(exec_path, "-Q", "-X", command)
-
-def convert_to_igor_path(path):
-    return path.replace(os.path.sep, ":")
-
-def put(self, wave, wavename, path, x0=0, dx=1):
-    with h5py.File(path, "w") as f:
-        dataset = f.create_dataset(uid, data=wave)
-    # execute_command(f'PyIgorLoadWave({}, \"{wavename}\", \"{path}\", 0)')
 
 def test_fx(path_to_movie, debug=False):
     # just for testing
