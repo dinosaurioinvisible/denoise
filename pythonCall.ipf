@@ -11,7 +11,7 @@ Function RunPythonScriptOnMovie(string path_to_python, string path_to_python_scr
 		RunPythonScriptOnMovieMacOs(path_to_python, path_to_python_script, path_to_movie)
 	endif
 	// open files in new folder in igor
-	string dirpath = path_to_python_script[0,strsearch(path_to_python_script, "\\", strlen(path_to_python_script)-1, 3)]
+	string dirpath = path_to_movie[0,strsearch(path_to_movie, "\\", strlen(path_to_movie)-1, 3)]
 	string path_to_python_output = dirpath+"python_output"
 	LoadFiles(dirpath=path_to_python_output)
 End
@@ -32,7 +32,6 @@ function RunPythonScriptOnMovieMacOs(string path_to_python, string path_to_pytho
    Print S_value
 End
 
-stringbyKey(
 
 // windows
 // string path_to_python = "none"

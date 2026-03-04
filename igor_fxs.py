@@ -1,4 +1,7 @@
 
+
+# first debug point: command in Igor Pro must be working to arrive here
+# if anything fails immediatly after this, most probably is the imports
 # import pdb; pdb.set_trace()
 
 import os
@@ -9,42 +12,29 @@ import tifffile as tf
 import numpy as np
 from ks_method import KS_pipeline
 
-'''
-1. call from igor
-2. open with / put into igor
-3. put script in user procedures
-4. make button in igor
-5. generalize to more scripts
-'''
-
 def test_fx(path_to_movie, debug=False):
     # just for testing
     if debug:
+        # this saves in same python script folder
         if system() == 'Windows':
             subprocess.run("dir >> xtest.txt", shell=True)
             import pdb; pdb.set_trace()
         else:
             subprocess.run("ls -l >> xtest.txt", shell=True)
-    movie_raw = tf.imread(path_to_movie)
-    movie_deint = movie_raw[0::2]
-    savepath = ''.join(path_to_movie.split('.')[:-1])+'_xtest2.tiff'
-    tf.imwrite(savepath, movie_deint)
-    igor_save_path = convert_to_igor_path(savepath)
-    # return igor_save_path
-
+    # any imports/fxs you'd like to try go here
+    #
 
 if __name__ == "__main__":
     script = sys.argv[0]
     path_to_movie = sys.argv[1]
-    debug = True
+    deb = False
     for arg in sys.argv:
-        debug = True if arg == '--debug' or arg == '-d' else debug
-    if debug:
-        test_fx(path_to_movie=path_to_movie, debug=debug)
-        import pdb; pdb.set_trace()
-    # here you can call any other function
-    x = KS_pipeline(path_to_movie, debug=debug)
-
+        deb = True if arg == '--debug' or arg = "--test" else deb
+    if deb:
+        test_fx(path_to_movie=path_to_movie, debug=deb)
+    # here you can call any function
+    # import pdb; pdb.set_trace()
+    x = KS_pipeline(path_to_movie, debug=deb)
 
 
 
