@@ -2,6 +2,13 @@
 
 # first debug point: command in Igor Pro must be working to arrive here
 # if anything fails immediatly after this, most probably is the imports
+# also, importantly
+# when run from igor pro, some normal python stuff throw errors, like:
+# comments ending in : (like #something:)
+# ask for indententation
+# x = x if something or something2 else y
+# complains because supposedly there's no else
+# most of there can should be printed by the s_value in igor pro
 # import pdb; pdb.set_trace()
 
 import os
@@ -29,7 +36,7 @@ if __name__ == "__main__":
     path_to_movie = sys.argv[1]
     deb = False
     for arg in sys.argv:
-        deb = True if arg == '--debug' or arg = "--test" else deb
+        deb = True if arg == '--debug' else deb
     if deb:
         test_fx(path_to_movie=path_to_movie, debug=deb)
     # here you can call any function

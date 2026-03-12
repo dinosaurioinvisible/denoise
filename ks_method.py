@@ -234,6 +234,8 @@ class KS_pipeline:
             df1.to_csv(f'{self.savepath}_ks-peaks.csv')
             df2.to_csv(f'{self.savepath}_synapses.csv')
 
+    # TOD: all plots 
+    # def mk_synapse_plots(self):
 
     # TODO: understand better the last part here
     # TODO: why is returning pixels instead of ROIs?

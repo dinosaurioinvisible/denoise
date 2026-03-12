@@ -25,7 +25,7 @@ Function/S LoadFiles([string dirpath])
 		endif
 		sep = ";"
 		newPath/o sdirpath, dirpath
-		// indexFile only takes symb path as arg1, not str
+		// indexFile only takes symbolic path as arg1, not str
 		// arg3 takes exactly 4 chars matching last 4 chars in filename
 		outputPaths = indexedFile(sdirpath, -1, "????")
 	else
@@ -35,7 +35,7 @@ Function/S LoadFiles([string dirpath])
 	endif
    
 	if (strlen(outputPaths) == 0)
-		Print "Cancelled"
+		Print "Cancelled by user"
 	else
 		// for optional dirpath
 		variable numFilesSelected = ItemsInList(outputPaths, sep)
@@ -58,7 +58,7 @@ Function/S LoadFiles([string dirpath])
 			elseif (cmpStr(path[strlen(path)-4,strlen(path)-1], ".txt")  == 0)
 				LoadWave/J/M/U={0,0,1,0}/D/A/K=0/L={0,0,0,0,0}/n=$fname path
 			else
-				print 	fname
+				print fname
 				print "No recognized file type (tif, tiff, png, jpeg, csv, txt)"
 				print path
 			endif 
