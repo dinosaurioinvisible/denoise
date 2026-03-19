@@ -254,7 +254,7 @@ def tensor_animation_pausable(arr, step=10, color='gray', title='', mask='',
     time = fig.text(0.5,0.95,"",ha="center",va="center")
     im = ax.imshow(arr[0], cmap=color, animated=True, aspect=aspect)
 
-    # to pause the animation and check data
+    # to pause the animation and check data
     anim_running = True
     def onClick(event):
         nonlocal anim_running

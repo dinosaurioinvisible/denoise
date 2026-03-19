@@ -15,9 +15,8 @@ import os
 import sys
 import subprocess
 from platform import system
-import tifffile as tf
-import numpy as np
-from ks_method import KS_pipeline
+# from ks_method import KS_pipeline
+
 
 def test_fx(path_to_movie, debug=False):
     # just for testing
@@ -31,6 +30,7 @@ def test_fx(path_to_movie, debug=False):
     # any imports/fxs you'd like to try go here
     #
 
+
 if __name__ == "__main__":
     script = sys.argv[0]
     path_to_movie = sys.argv[1]
@@ -41,6 +41,7 @@ if __name__ == "__main__":
         test_fx(path_to_movie=path_to_movie, debug=deb)
     # here you can call any function
     # import pdb; pdb.set_trace()
+    from ks_method import KS_pipeline
     x = KS_pipeline(path_to_movie, debug=deb)
 
 

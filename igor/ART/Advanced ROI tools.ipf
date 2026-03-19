@@ -20,17 +20,22 @@
 #include "Regfolder"
 #include "imshow"
 #include "ROIbuddy"
-#include "Ch2LineRes"													//ferv inclusion Jan25
+#include "Ch2LineRes"													//fernando inclusion 1/26
+#include "pig"															//fernando inclusion 3/26
+// #include "pigthon_load_movie"
 
 //NewDataFolder/O root:Packages:AROItools
-// Variable/G root:Packages:AROItools:FOVatZoom1=610
+//Variable/G root:Packages:AROItools:FOVatZoom1=610
 
 Window AdvancedROI() : Panel_ART									//Paul adds "_ART" to differentiate from iGluSnFR panel...
 	PauseUpdate; Silent 1		// building window...
 	NewDataFolder/O root:Packages:AROItools
-	Variable/G root:Packages:AROItools:FOVatZoom1=329.5
+	Variable/G root:Packages:AROItools:FOVatZoom1=610
 	
-	NewPanel /W=(993,45,1274,519) as "Advanced ROI tools"
+	// fernando: changing this to include pig
+	// NewPanel /W=(993,45,1274,519) as "Advanced ROI tools"
+	// /w=(left, top, right, bottom)
+	NewPanel /W=(993,45,1274,666) as "Advanced ROI tools"
 	ModifyPanel cbRGB=(19452,22124,22440)
 	SetDrawLayer UserBack
 	SetDrawEnv linethick= 0,fillfgc= (10283,48779,31735)
@@ -53,6 +58,29 @@ Window AdvancedROI() : Panel_ART									//Paul adds "_ART" to differentiate fro
 	DrawRRect 33,351,248,379
 	SetDrawEnv fsize= 15,textrgb= (65535,65535,65535)
 	DrawText 39,351,"Modify Mask"
+	// Fernando included pig 3/26
+	SetDrawEnv fsize= 16,fstyle= 1,textrgb= (65535,65535,65535)
+	DrawText 30,485,"pig"
+	// light green & orange rectangles
+	SetDrawEnv linethick= 0,fillfgc= (10283,48779,31735)
+	DrawRRect 20,495,255,605
+	SetDrawEnv linethick= 0,fillfgc= (60450,21530,15568)
+	DrawRRect 25,525,250,555
+	// text in rectangle
+	SetDrawEnv fsize= 15,textrgb= (65535,65535,65535)
+	DrawText 30,522,"Select "
+	// pig buttons
+	Button pigMovie,pos={30,530},size={65,20},proc=ButtonProc_pigMovie,title="movie"
+	Button pigMovie,fColor=(16191,18504,18761)
+	Button pigScript,pos={105,530},size={65,20},proc=ButtonProc_pigScript,title="script"
+	Button pigScript,fColor=(16191,18504,18761)
+	Button pigInterpreter,help={"python script"}
+	Button pigInterpreter,pos={180,530},size={65,20},proc=ButtonProc_pigInterpreter,title="python"
+	Button pigInterpreter,fColor=(16191,18504,18761)
+	Button pigInterpreter,help={"dir of python interpreter (may be conda/venv)"}
+	Button pigRun,pos={50,570},size={180,25},proc=ButtonProc_pigRun,title="run"
+	Button pigRun,fColor=(16191,18504,18761)
+	// ART
 	Button Threshold,pos={175,277},size={65,20},proc=ButtonProc_34,title="Thresh"
 	Button Threshold,font="Lucida Grande",fStyle=0,fColor=(16191,18504,18761)
 	Button Kalman,pos={28,147},size={65,20},proc=ButtonProc_35,title="Kalman"
@@ -69,13 +97,15 @@ Window AdvancedROI() : Panel_ART									//Paul adds "_ART" to differentiate fro
 	Button Check_mask,fColor=(16191,18504,18761)
 	Button Realign,pos={180,354},size={65,20},proc=ButtonProc_42,title="Realign"
 	Button Realign,fColor=(16191,18504,18761)
-	Button GetROIs,pos={110,301},size={65,20},proc=ButtonProc_1,title="GetROIS"
+	// f: changed display size to add KS button
+	//Button GetROIs,pos={110,301},size={65,20},proc=ButtonProc_1,title="GetROIS"
+	Button GetROIs,pos={106,301},size={65,20},proc=ButtonProc_1,title="GetROIS"
 	Button GetROIs,fColor=(16191,18504,18761)
 	Button Scale,pos={182,42},size={65,20},proc=ButtonProc,title="Scale SI"
 	Button Scale,fColor=(16191,18504,18761)
 	Button Scrub,pos={37,355},size={65,20},proc=ButtonProc_3,title="Scrub"
 	Button Scrub,fColor=(16191,18504,18761)
-	// just changing display here
+	// f: just changing display here, to add Ch2st button
 	// Button AveM,pos={122,147},size={100,20},proc=ButtonProc_2,title="Ave reps in vid"
 	Button AveM,pos={104,147},size={65,20},proc=ButtonProc_2,title="Ave reps"
 	Button AveM,fColor=(16191,18504,18761)
@@ -85,9 +115,12 @@ Window AdvancedROI() : Panel_ART									//Paul adds "_ART" to differentiate fro
 	Button Reg,fColor=(16191,18504,18761)
 	Button Show,pos={50,229},size={178,20},proc=ButtonProc_6,title="Show"
 	Button Show,fColor=(16191,18504,18761)
-	// button for channel 2 to stimulus
+	// f: button for channel 2 to stimulus
 	Button Ch2st,pos={177,147},size={65,20},proc=ButtonProc_43,title="Ch2st"
 	Button Ch2st,fColor=(16191,18504,18761)
+	// f: button - orginally for KS, empty for now
+	Button Uiop,pos={175,301},size={65,20},proc=ButtonProc_44,title=""
+	Button Uiop,fColor=(16191,18504,18761)	
 	SetVariable FOV,pos={104,43},size={68,19},proc=SetVarProc_1,title="FOV"
 	SetVariable FOV,help={"Field of view in µm @ zoom 1"},fSize=12,fStyle=1
 	SetVariable FOV,fColor=(65535,65535,65535)
@@ -107,8 +140,98 @@ Menu "Macros"
 
 end
 
+// Function RegFolder(ba) : ButtonControl
+//	STRUCT WMButtonAction &ba
+//
+//	switch( ba.eventCode )
+//		case 2: // mouse up
+//			 loadfoldRaw()
+//			break
+//		case -1: // control being killed
+//			break
+//	endswitch
+//
+//	return 0
+// End
 
-// ferv Ch2sti from Ch2LineRes
+// fernando: buttons for pig
+// pig1: load movie
+function ButtonProc_pigMovie(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+	switch( ba.eventCode )
+		case 2: // mouse up
+		
+			pigLoadMovie()
+			
+			break
+		case -1: // control being killed
+			break
+	endswitch
+	return 0
+end
+
+// pig2: select python script
+function ButtonProc_pigScript(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+	switch( ba.eventCode )
+		case 2: // mouse up
+		
+			pigSelectPythonScript()
+			
+			break
+		case -1: // control being killed
+			break
+	endswitch
+	return 0
+end
+
+// pig3: select/change python interpreter
+function ButtonProc_pigInterpreter(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+	switch( ba.eventCode )
+		case 2: // mouse up
+		
+			pigDefinePythonInterpreterPath()
+			
+			break
+		case -1: // control being killed
+			break
+	endswitch
+	return 0
+end
+
+// pig4: run pigthon
+function ButtonProc_pigRun(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+	switch( ba.eventCode )
+		case 2: // mouse up
+		
+			pigRunPythonScriptOnMovie()
+			
+			break
+		case -1: // control being killed
+			break
+	endswitch
+	return 0
+end
+
+
+// f: KS method coded in igor pro (empty for now)
+function ButtonProc_44(ba) : ButtonControl
+	STRUCT WMButtonAction &ba
+	switch( ba.eventCode )
+		case 2: // mouse up
+
+			// KS method coded in igor
+			
+			break
+		case -1: // control being killed
+			break
+	endswitch
+	return 0
+end
+
+// f: Ch2st from Ch2LineRes
 Function ButtonProc_43(ba) : ButtonControl
 	STRUCT WMButtonAction &ba
 

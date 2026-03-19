@@ -2,8 +2,8 @@
 
 import numpy as np
 import tifffile as tf
-# import matplotlib.pyplot as plt
-# import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 from scipy.optimize import curve_fit
 from scipy.ndimage import shift, gaussian_filter
@@ -12,12 +12,14 @@ from skimage.registration import phase_cross_correlation
 from skimage.feature import peak_local_max
 
 import os
+import sys
 from scipy.ndimage import zoom
 import pandas as pd
 
-# ============================================================
-# PARAMETERS
-# ============================================================
+
+
+#TODO: use physical measures?
+#TODO: np.arange or linspace? from 0?
 
 class KS_pipeline:
     def __init__(self, fpath,
@@ -27,37 +29,31 @@ class KS_pipeline:
         sigma_smooth = 0,               # for gaussian filter in ΔF map
         sigma_fit = 1,                  # for 2d gaussian fit
         lambda_reg = 0.05,              # regul. strength in ridge regression
-        baseline_windows = [(0,5), (55,60)],    # for baseline idxs
-        freq = 20,                      # could be variable
         edge_margin = 3,                # could be variable
         alpha = 0.05,                   # threshold for p-value significance
-        patch_radius = 3,               # ?
-        baseline_window_dff = (1,5),    # ?
+        fov = 610,
         #
         registration = True,
         bleach_correction = True,
         igor = True,
+        mk_plots = False,
         debug = False
         ):
             self.fpath = fpath
             self.threshold_percentile = percentile
             self.min_distance = min_distance
+            # this could be dynamic (fov/lines/zoom)
             self.roi_radius = roi_radius
             self.sigma_smooth = sigma_smooth
-            self.baseline_windows = baseline_windows
             self.alpha = alpha
             self.sigma_fit = sigma_fit
             self.lambda_reg = lambda_reg
-            # this should be dynamic from igor info
-            self.freq = freq
+            self.fov = fov
             # this could be dynamic (depends on reg type)
             self.edge_margin = edge_margin
-            # ?
-            # self.patch_radius = patch_radius
-            # self.baseline_window_dff = (1,5)
-            #
             self.igor = igor
             self.debug = debug
+            self.mk_plots = mk_plots
             self.run()
 
     def run(self):
@@ -72,22 +68,43 @@ class KS_pipeline:
         if isinstance(self.synapses,np.ndarray):
             self.ridge_demixing()
             self.compute_dff_traces()
+            if self.mk_plots:
+                self.plot_in_seconds(self.stimulus)
+                self.plot_synapses()
+                self.plot_traces()
+                self.plot_raster()
 
 
+    # TODO: use np.arange or linspace?
     def load_movie(self):
         # assumes raw movie
-        raw_movie = tf.imread(self.fpath)
+        x = tf.TiffFile(self.fpath)
+        raw_movie = x.asarray()
         # de-interleave
         self.movie = raw_movie[0::2]
         self.nframes = self.movie.shape[0]
-        # stimulus = raw_movie[1::2]
-        # stimulus may be used later?
-        # self.stimulus_trace = stimulus.mean(axis=(1,2))
+        # for activity/baseline windows
+        self.stimulus, self.steps = self.mk_steps(raw_movie)
+        # metadata (only for scanImage)
+        raw_metadata = x.pages[0].tags['ImageDescription'].value.split('\r')
+        self.metadata = {}
+        for i in raw_metadata:
+            k,v = i.split("=")
+            self.metadata[k] = v
+        self.frequency = float(self.metadata["state.acq.frameRate"])
+        self.zoomFactor = float(self.metadata["state.acq.zoomFactor"])
+        self.duration = self.nframes/self.frequency
+        # this has 1 more val than linspace (includes 0 and final)
+        # self.timesteps = np.arange(self.nframes+1)/self.frequency
+        self.stimulus2d = np.zeros((2,self.nframes))
+        self.stimulus2d[0] = np.arange(self.nframes)/self.frequency
+        self.stimulus2d[1] = self.stimulus
         if self.debug:
             print('in load_movie()')
             import pdb; pdb.set_trace()
         if self.igor:
             self.mk_names()
+            np.savetxt(f'{self.savepath}_stimulus2d.csv', self.stimulus2d, delimiter=",")
 
 
     def mk_names(self):
@@ -123,6 +140,7 @@ class KS_pipeline:
         # order 1: bilinear
         self.movie = zoom(self.movie, zoom=(1,zoom_ratio,1), order=1)
         self.nrows, self.ncols = self.movie.shape[1:]
+        self.pixelSize = self.fov/self.nrows/self.zoomFactor
         if self.debug:
             print('in interpolate()')
             import pdb; pdb.set_trace()
@@ -137,8 +155,8 @@ class KS_pipeline:
         frame_mean = self.movie.mean(axis=(1,2))
         def exp_decay(t,A,tau,C):
             return A*np.exp(-t/tau)+C
-        p0 = [frame_mean[0] - frame_mean[-1], self.nframes/self.freq/2, frame_mean[-1]]
-        time = np.arange(self.nframes)/self.freq
+        p0 = [frame_mean[0] - frame_mean[-1], self.nframes/self.frequency/2, frame_mean[-1]]
+        time = np.arange(self.nframes)/self.frequency
         params,_ = curve_fit(exp_decay,time,frame_mean,p0=p0,maxfev=10000)
         fit_curve = exp_decay(time,*params)
         self.movie = self.movie / np.maximum(fit_curve[:,None,None],1e-8)
@@ -152,13 +170,10 @@ class KS_pipeline:
 
     # decouple baseline & activity
     def stim_transitions(self):
-        # make baseline indices
-        if len(self.baseline_windows) > 0:
-            self.baseline_idxs = np.array([np.arange(a*self.freq,b*self.freq) for a,b in self.baseline_windows]).flatten()
-        # remove baseline idxs from movie idxs for activivity idxs
-        mask = np.ones((self.nframes)).astype(bool)
-        mask[self.baseline_idxs] = False
-        self.activity_idxs = np.arange(self.nframes)[mask]
+        # make baseline & activity indices
+        bi,bf = self.steps[0::self.steps.shape[0]-1]
+        self.baseline_idxs = np.concatenate((np.arange(bi[0],bi[1]),np.arange(bf[0],bf[1])))
+        self.activity_idxs = np.arange(bi[1],bf[0])
         if self.debug:
             print('in stim_transitions()')
             import pdb; pdb.set_trace()
@@ -171,11 +186,11 @@ class KS_pipeline:
     def mk_deltaf_map(self):
         baseline_mean = self.movie[self.baseline_idxs].mean(axis=0)
         activity_mean = self.movie[self.activity_idxs].mean(axis=0)
-        deltaf_map = gaussian_filter(activity_mean - baseline_mean, sigma=self.sigma_smooth)
+        self.deltaf_map = gaussian_filter(activity_mean - baseline_mean, sigma=self.sigma_smooth)
         # minimum intensity for pixels
-        threshold_abs = np.percentile(deltaf_map, self.threshold_percentile)
+        threshold_abs = np.percentile(self.deltaf_map, self.threshold_percentile)
         # local max in: 2 * min distance + 1
-        self.deltaf_peaks = peak_local_max(deltaf_map,
+        self.deltaf_peaks = peak_local_max(self.deltaf_map,
                             min_distance=self.min_distance,
                             threshold_abs=threshold_abs,
                             exclude_border=self.edge_margin)
@@ -183,7 +198,7 @@ class KS_pipeline:
             print('in deltaf_map()')
             import pdb; pdb.set_trace()
         if self.igor:
-            tf.imwrite(f'{self.savepath}_deltaf.tif', deltaf_map)
+            tf.imwrite(f'{self.savepath}_deltaf.tif', self.deltaf_map)
 
 
     # TODO: is not actually using the distance
@@ -211,31 +226,31 @@ class KS_pipeline:
             # ks
             dist,pval = ks_2samp(baseline_vals, activity_vals)
             self.ks_peaks.append([y0,x0,dff,dist,pval])
+        # ks peaks = [y0, x0, dff, ks dist, ks pval]
         # sort by p-vals
         self.ks_peaks = np.array(sorted(self.ks_peaks, key=lambda x:x[-1]))
         # threshold line
         th_line = self.alpha * np.arange(1, len(self.ks_peaks)+1)/len(self.ks_peaks)
         # remove where p-values > threshold line
         self.ks_peaks = self.ks_peaks[np.where(self.ks_peaks[:,-1] <= th_line)]
-        # sort by ΔF/F and keep coords only
+        # check whether there are significative synapses
         if len(self.ks_peaks) == 0:
             # raise Exception ('\nNo significative peaks found\n')
             print('\nNo significative peaks found\n')
             self.synapses = None
             return
+        # sort by ΔF/F and keep coords only
         self.synapses = np.array(sorted(self.ks_peaks, key=lambda x:x[2], reverse=True))[:,:2].astype(int)
         # export data
         if self.debug:
             print('in ks_distance()')
             import pdb; pdb.set_trace()
         if self.igor:
-            df1 = pd.DataFrame(self.ks_peaks)
-            df2 = pd.DataFrame(self.synapses)
+            df1 = pd.DataFrame(self.ks_peaks, columns=["row","col","dF/F","ks-d","ks-p"])
+            df2 = pd.DataFrame(self.synapses, columns=["row","col"])
             df1.to_csv(f'{self.savepath}_ks-peaks.csv')
             df2.to_csv(f'{self.savepath}_synapses.csv')
 
-    # TOD: all plots 
-    # def mk_synapse_plots(self):
 
     # TODO: understand better the last part here
     # TODO: why is returning pixels instead of ROIs?
@@ -285,8 +300,10 @@ class KS_pipeline:
     # TODO: check if tiff is best way to save
     # i assume is the same as only the first window?
     def compute_dff_traces(self):
-        a,b = self.baseline_windows[0]
-        baseline_idxs_dff = np.arange(a*self.freq,b*self.freq)
+        a,b = self.steps[0][:2]
+        # original (don't understand why though)
+        # baseline_idxs_dff = np.arange(20,b)
+        baseline_idxs_dff = np.arange(a,b)
         # get traces
         self.dff_traces = []
         for i,amp in enumerate(self.gs_amps):
@@ -301,43 +318,163 @@ class KS_pipeline:
             tf.imwrite(f'{self.savepath}_dff-traces.tif', self.dff_traces)
 
 
+    # imshow with sorted synapses
+    # TODO: sorted by p-values
+    # should they be ordered by ∆f/f?
+    # TODO: what th_vmin & th_vmax do?
+    # TODO: kwargs to scatter
+    # TODO: why deltaf_map? (I don't exactly remember now)
+    def plot_synapses(self, th_vmin=5, th_vmax=99):
+        vmin = np.percentile(self.deltaf_map, th_vmin)
+        vmax = np.percentile(self.deltaf_map, th_vmax)
+        plt.imshow(self.deltaf_map, cmap='gray', vmin=vmin, vmax=vmax)
+        plt.title(f"Detected Synapses (n={len(self.synapses)})")
+        plt.axis('off')
+        # plot synapses
+        for ei,(sy,sx) in enumerate(self.synapses,1):
+            plt.scatter(sx,sy,s=70,facecolors='none',edgecolor='red',linewidths=1.2)
+            # write n in list
+            plt.text(sx,sy,str(ei),
+                color='yellow',fontsize=8,
+                ha='center',va='center',fontweight='bold')
+        plt.tight_layout()
+        # plt.savefig(f'{self.savepath}_synapses.png')
+        plt.show()
 
-if __name__ == "__main__":
-    movie = sys.argv[0]
-    percentile = 70
-    min_distance = 3
-    roi_radius = 3
-    sigma_mooth = 0
-    sigma_fit = 3
-    baseline_windows = [(0,5), (55,60)]
-    debug = False
-    for ei,arg in enumerate(sys.argv):
-        if arg.startswith('--percentile='):
-            percentile = float(arg.split('=')[1])
-        if arg.startswith('--min_distance='):
-            min_distance = float(arg.split('=')[1])
-        if arg.startswith('--roi_radius='):
-            roi_radius = float(arg.split('=')[1])
-        if arg.startswith('--patch_radius='):
-            patch_radius = float(arg.split('=')[1])
-        if arg.startswith('--sigma_smooth='):
-            sigma_smooth = float(arg.split('=')[1])
-        if arg.startswith('--sigma_fit='):
-            sigma_fit = float(arg.split('=')[1])
-        if arg.startswith('--baseline_windows='):
-            baseline_windows = arg.split('=')[1]
-        if arg == '--debug':
-            debug == True
-        if arg == '--igor':
-            igor = True
-    ks_run(path_to_movie=movie, debug=debug,
-        percentile=percentile,
-        min_distance=min_distance,
-        roi_radius=roi_radius,
-        patch_radius=patch_radius,
-        sigma_fit=sigma_fit,
-        baseline_windows=baseline_windows
-        )
+    # plot best traces
+    # TODO: why re-sorting using ΔF/F?
+    # visually i get it, but shouldn't be consistent with imshow?
+    # TODO: include significance rank in label
+    # TODO: linspace or np.arange
+    # for plotting is OK, but this hsould be np.arange
+    def plot_traces(self, n=5, title=''):
+        f, (a0,a1) = plt.subplots(2,1, gridspec_kw={'height_ratios': [1,7]})
+        # for traces in seconds
+        t = np.linspace(0,self.dff_traces[0].size/self.frequency,self.dff_traces[0].size)
+        a0.plot(t,self.stimulus)
+        a0.set_xlim(xmin=0, xmax=self.duration)
+        a0.set_xticks([])
+        a0.set_yticks([])
+        for ni in range(n):
+            a1.plot(t,self.dff_traces[ni])
+        # a1.set_ylim(ymax=0, ymin=locs.shape[0]-1)
+        a1.set_xlim(xmin=0, xmax=self.duration)
+        # a1.set_xticks(np.arange(0,self.stimulus.size+1,100))
+        # a1.set_yticks(np.arange(0,locs.shape[0],5))
+        a1.set_ylabel("ΔF/F")
+        a1.set_xlabel("seconds")
+        plt.suptitle(title)
+        plt.tight_layout()
+        # plt.savefig(f'{self.savepath}_{n}traces.png')
+        plt.show()
+        
+    # TODO: what is vmax here?
+    # basically same as before, but for all
+    def plot_raster(self, title=''):
+        f, (a0,a1) = plt.subplots(2,1, gridspec_kw={'height_ratios': [1,7]})
+        # for traces in seconds
+        t = np.linspace(0,self.dff_traces[0].size/self.frequency,self.dff_traces[0].size)
+        a0.plot(t,self.stimulus)
+        a0.set_xlim(xmin=0, xmax=self.duration)
+        a0.set_xticks([])
+        a0.set_yticks([])
+        # raster
+        # for imshow we can't change the data
+        vmax=np.percentile(np.abs(self.dff_traces),99)
+        a1.imshow(self.dff_traces, aspect='auto', cmap='gray',
+                  vmin=-vmax,vmax=vmax,
+                  extent=[0,self.duration,0,self.dff_traces.shape[0]])
+        # a1.set_xticks(np.arange(0,self.stimulus.size+1,100))
+        # a1.set_yticks(np.arange(0,locs.shape[0],5))
+        a1.set_ylabel("synapses")
+        a1.set_xlabel("seconds")
+        plt.suptitle(title)
+        plt.tight_layout()
+        # plt.savefig(f'{self.savepath}_rasterplot.png')
+        plt.show()
+        
+    # TODO: understand this part well
+    # def plot_bleeding(self,title='Spatial cross-talk comparison'):
+      # get traces from same pixels before demixing
+      # compute correlation matrices & spatial distances
+        
+
+    # simple fx to transform to seconds
+    def plot_in_seconds(self,arr):
+        t = np.linspace(0,arr.size/self.frequency,arr.size)
+        plt.plot(t,arr)
+        plt.show()
+
+    # makes steps from linear arr with changing values
+    def mk_steps(self, raw_movie, delta=0.2, start_val=1, baseline=True):
+        # make stimulus array
+        arr = raw_movie[1::2].mean(axis=(1,2))
+        arr /= arr.max()
+        # normalize
+        if arr.max() > 1:
+            arr = arr/arr.max()
+        i0, vx = 0, start_val
+        steps = []
+        for i in range(arr.size-1):
+            if abs(arr[i+1] - arr[i]) > arr[i]*delta:
+                dx = (arr[i+1]-arr[i])/abs(arr[i+1]-arr[i])
+                # index start, index end, step val
+                steps.append([i0, i+1, vx])
+                i0 = i+1
+                vx += dx
+        if vx != steps[-1][2]:
+            interval = steps[-1][1] - steps[-1][0]
+            steps.append([i0, i0+interval, vx])
+        if baseline:
+            # append ending
+            if steps[-1][1] < arr.size:
+                steps.append([steps[-1][1], arr.size, vx])
+        else:
+            del(steps[0])
+        return arr, np.array(steps).astype(int)
+
+
+# fpath = '/Users/f/Desktop/100226/F1/STR/CR_1HZ_AF10016_STR.tif'
+# fpath = '/Users/f/Desktop/100226/F1/STR/STEP_AF10017_STR.tif'
+# fpath = '/Users/f/Desktop/100226/F1/STR/TF_AF10018-STR.tif'
+# ox = KS_pipeline(fpath)
+
+
+# if __name__ == "__main__":
+#     movie = sys.argv[0]
+#     percentile = 70
+#     min_distance = 3
+#     roi_radius = 3
+#     sigma_mooth = 0
+#     sigma_fit = 3
+#     baseline_windows = [(0,5), (55,60)]
+#     debug = False
+#     for ei,arg in enumerate(sys.argv):
+#         if arg.startswith('--percentile='):
+#             percentile = float(arg.split('=')[1])
+#         if arg.startswith('--min_distance='):
+#             min_distance = float(arg.split('=')[1])
+#         if arg.startswith('--roi_radius='):
+#             roi_radius = float(arg.split('=')[1])
+#         if arg.startswith('--patch_radius='):
+#             patch_radius = float(arg.split('=')[1])
+#         if arg.startswith('--sigma_smooth='):
+#             sigma_smooth = float(arg.split('=')[1])
+#         if arg.startswith('--sigma_fit='):
+#             sigma_fit = float(arg.split('=')[1])
+#         if arg.startswith('--baseline_windows='):
+#             baseline_windows = arg.split('=')[1]
+#         if arg == '--debug':
+#             debug == True
+#         if arg == '--igor':
+#             igor = True
+#     x = KS_pipeline(path_to_movie=movie, debug=debug,
+#         percentile=percentile,
+#         min_distance=min_distance,
+#         roi_radius=roi_radius,
+#         sigma_fit=sigma_fit,
+#         baseline_windows=baseline_windows
+#         )
 
 
 

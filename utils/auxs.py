@@ -24,6 +24,8 @@ def mk_squared(arr, order=1):
 
 # makes steps from linear arr with changing values
 def mk_steps(arr, delta=0.2, start_val=1, baseline=True):
+    # normalize
+    arr = arr/arr.max()
     i0, vx = 0, start_val
     steps = []
     for i in range(arr.size-1):
@@ -42,7 +44,6 @@ def mk_steps(arr, delta=0.2, start_val=1, baseline=True):
             steps.append([steps[-1][1], arr.size, vx])
     else:
         del(steps[0])
-
     return np.array(steps).astype(int)
 
 # to match 2 sets of indexes and see elements in common and not in common

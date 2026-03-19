@@ -3,8 +3,8 @@
 #pragma rtGlobals=3		// Use modern global access method and strict wave access.
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Input is any kind of file from a given folder
-//Output is the conversion of files into IGOR 2D wave(s)
+// Input is any kind of file from a given folder
+// Output is the conversion of files into IGOR 2D wave(s)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
  
 
@@ -15,16 +15,26 @@ Function/S LoadFiles([string dirpath])
 	string outputPaths
 	string fileFilters = "All Files"
 	string sep = "\r"
+	string platform = IgorInfo(2)
 
 	// look for path
 	if (paramIsDefault(dirpath) == 0)
 		Print "Loading from: "+dirpath
-		// dirpath has to end with ":"
-		if (cmpStr(dirpath[strlen(dirpath)-1],":") == 1)
-			dirpath += ":"
+		// dirpath has to end with ": or / or \"
+		if (cmpstr(dirpath[0],dirpath[strlen(dirpath)-1]) != 0)
+			// this is working for macOs
+			// TODO
+			// check again for windows
+			dirpath += dirpath[0]
 		endif
 		sep = ";"
-		newPath/o sdirpath, dirpath
+		// for macos only
+		if (CmpStr(platform, "Windows") != 0)
+			string macdirpath = "Macintosh HD:" + ReplaceString("/", dirpath[1,strlen(dirpath)-1], ":")
+			newPath/O sdirpath, macdirpath
+		else
+			newPath/O sdirpath, dirpath
+		endif
 		// indexFile only takes symbolic path as arg1, not str
 		// arg3 takes exactly 4 chars matching last 4 chars in filename
 		outputPaths = indexedFile(sdirpath, -1, "????")
@@ -35,7 +45,7 @@ Function/S LoadFiles([string dirpath])
 	endif
    
 	if (strlen(outputPaths) == 0)
-		Print "Cancelled by user"
+		Print "Cancelled"
 	else
 		// for optional dirpath
 		variable numFilesSelected = ItemsInList(outputPaths, sep)
@@ -43,6 +53,12 @@ Function/S LoadFiles([string dirpath])
 		for(iFile=0; iFile<numFilesSelected; iFile+=1)
 			String path = dirpath+StringFromList(iFile, outputPaths, sep)
 			Printf "%d: %s\r", iFile, path
+			// for macos
+			if (CmpStr(platform, "Windows") != 0)
+				path = "Macintosh HD:" + ReplaceString("/", path[1,strlen(path)-1], ":")
+				// Printf "%d: %s\r", iFile, path
+			endif
+			// for igor fname in data browser
 			string fname = ParseFilePath(3, path, ":", 0, 0)
 			
 			if (cmpStr(path[strlen(path)-4,strlen(path)-1], ".tif")  == 0)

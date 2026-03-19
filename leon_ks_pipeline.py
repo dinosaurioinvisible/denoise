@@ -31,9 +31,43 @@ baseline_window_dff = (1,5)
 
 sigma_fit = 1
 
+# new images from jose
+# 090226: CTRL
+# fpath = '/Users/f/Desktop/090226/F2/CTR/CR_1HZ_AF10_CTRL.tif'
+#fpath = '/Users/f/Desktop/090226/F2/CTR/STEP_AF10_CTRL.tif'
+# fpath = '/Users/f/Desktop/090226/F2/CTR/TF_AF10_CTRL.tif'
+# 090226: STR
+# fpath = '/Users/f/Desktop/090226/F2/STR/CR_1HZ_AF10_STR.tif'
+# fpath = '/Users/f/Desktop/090226/F2/STR/STEP_1HZ_AF10_STR.tif'
+# fpath = '/Users/f/Desktop/090226/F2/STR/TF_AF10_STR.tif'
+# # 100226: F1 - CTRL
+# fpath = '/Users/f/Desktop/100226/F1/CTRL/CR_1HZ_AF10001_CTRL.tif'
+# fpath = '/Users/f/Desktop/100226/F1/CTRL/STEP_AF10002_CTRL.tif'
+# fpath = '/Users/f/Desktop/100226/F1/CTRL/TF_AF10003_CTRL.tif'
+# # 100226: F1 - STR
+# fpath = '/Users/f/Desktop/100226/F1/STR/CR_1HZ_AF10016_STR.tif'
+fpath = '/Users/f/Desktop/100226/F1/STR/STEP_AF10017_STR.tif'
+# fpath = '/Users/f/Desktop/100226/F1/STR/TF_AF10018-STR.tif'
+# # 100226: F2 - CTRL
+# fpath = '/Users/f/Desktop/100226/F2/CTRL/CR_1HZ_AF10007_CTRL.tif'
+# fpath = '/Users/f/Desktop/100226/F2/CTRL/STEP_AF10008_CTRL.tif'
+# fpath = '/Users/f/Desktop/100226/F2/CTRL/TF_AF10009_CTRL.tif'
+# # 100226: F2 - STR
+# fpath = '/Users/f/Desktop/100226/F2/STR/CR_1HZ_AF10_STR.tif'
+# fpath = '/Users/f/Desktop/100226/F2/STR/STEP_AF10_STR020.tif'
+# fpath = '/Users/f/Desktop/100226/F2/STR/TF_AF10_STR022.tif'
+# # 100226: F3 - CTRL
+# fpath = '/Users/f/Desktop/100226/F3/CTRL/CR_1HZ_AF10013.tif'
+# fpath = '/Users/f/Desktop/100226/F3/CTRL/STEP_AF10014.tif'
+# fpath = '/Users/f/Desktop/100226/F3/CTRL/TF_AF10015.tif'
+# # 100226: F3 - STR
+# fpath = '/Users/f/Desktop/100226/F3/STR/CR_1HZ_AF10_STR023.tif'
+# fpath = '/Users/f/Desktop/100226/F3/STR/STEP_1HZ_AF10_STR024.tif'
+# fpath = '/Users/f/Desktop/100226/F3/STR/TF_1HZ_AF10_STR025.tif'
+
 # good
 # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Calcium_Tectum\\111125_CA_HUC\\f1\\a1\\step_HUC_a1.tif'
-fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A1\\Steps_pre_AF10_a1015_interpol.tif'
+# fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A1\\Steps_pre_AF10_a1015_interpol.tif'
 # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC_AF10\\A1\\Steps_pre_AF10_a1015_interpol.tif'
 # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F7_glut_HUC_AF10\\steps_pre_AF10_a1039.tif'
 # fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F5_glut_HUC_AF10\\a1\\STEP_AF10_a1012.tif'
@@ -47,7 +81,6 @@ fpath = 'C:\\Users\\Fernando\\zf\\data\\jose_data\\Glutamate_Tectum\\F2_glut_HUC
 # ============================================================
 # 1. LOAD + DEINTERLEAVE + INTERPOLATE
 # ============================================================
-#interleaved = tiff.imread("steps_pre_AF10_a2021.tif")
 interleaved = tiff.imread(fpath)
 
 # T_total, Y, X = interleaved.shape
