@@ -17,9 +17,15 @@ from scipy.ndimage import zoom
 import pandas as pd
 
 
+# TODO python:
+# ∆hf = 23 or 64 bits
+# return stimulus wave
+# data redimension dff_traces -> 2 dims instead of 3
+# 0 - 60
+# auto-detect baseline/event
+# is it overwriting ks-peaks csv?
+# auto adjust pixel radius based on zoom
 
-#TODO: use physical measures?
-#TODO: np.arange or linspace? from 0?
 
 class KS_pipeline:
     def __init__(self, fpath,
