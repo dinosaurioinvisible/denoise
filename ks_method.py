@@ -37,7 +37,6 @@ class KS_pipeline:
         lambda_reg = 0.05,              # regul. strength in ridge regression
         edge_margin = 3,                # could be variable
         alpha = 0.05,                   # threshold for p-value significance
-        fov = 610,
         #
         registration = True,
         bleach_correction = True,
@@ -48,19 +47,18 @@ class KS_pipeline:
             self.fpath = fpath
             self.threshold_percentile = percentile
             self.min_distance = min_distance
-            # this could be dynamic (fov/lines/zoom)
-            self.roi_radius = roi_radius
             self.sigma_smooth = sigma_smooth
             self.alpha = alpha
             self.sigma_fit = sigma_fit
             self.lambda_reg = lambda_reg
-            self.fov = fov
             # this could be dynamic (depends on reg type)
             self.edge_margin = edge_margin
             self.igor = igor
             self.debug = debug
             self.mk_plots = mk_plots
             self.run()
+            # this could be dynamic (fov/lines/zoom)
+            self.roi_radius = roi_radius
 
     def run(self):
         self.load_movie()
@@ -86,25 +84,17 @@ class KS_pipeline:
         # assumes raw movie
         x = tf.TiffFile(self.fpath)
         raw_movie = x.asarray()
-        # de-interleave
-        self.movie = raw_movie[0::2]
-        self.nframes = self.movie.shape[0]
-        # for activity/baseline windows
-        self.stimulus, self.steps = self.mk_steps(raw_movie)
         # metadata (only for scanImage)
-        raw_metadata = x.pages[0].tags['ImageDescription'].value.split('\r')
-        self.metadata = {}
-        for i in raw_metadata:
-            k,v = i.split("=")
-            self.metadata[k] = v
-        self.frequency = float(self.metadata["state.acq.frameRate"])
-        self.zoomFactor = float(self.metadata["state.acq.zoomFactor"])
-        self.duration = self.nframes/self.frequency
-        # this has 1 more val than linspace (includes 0 and final)
-        # self.timesteps = np.arange(self.nframes+1)/self.frequency
-        self.stimulus2d = np.zeros((2,self.nframes))
-        self.stimulus2d[0] = np.arange(self.nframes)/self.frequency
-        self.stimulus2d[1] = self.stimulus
+        # de-interleave (depending on microscope)
+        if len(raw_movie.shape) == 4:
+            self.metadata = self.get_metadata(x, datatype='Software')
+            self.movie = raw_movie[:,0,:,:]
+        else:
+            self.metadata = self.get_metadata(x, datatype='ImageDescription')
+            self.movie = raw_movie[0::2]
+        self.nframes = self.movie.shape[0]
+        self.duration = self.nframes/self.frameRate
+        self.mk_stimulus(raw_movie)
         if self.debug:
             print('in load_movie()')
             import pdb; pdb.set_trace()
@@ -112,6 +102,55 @@ class KS_pipeline:
             self.mk_names()
             np.savetxt(f'{self.savepath}_stimulus2d.csv', self.stimulus2d, delimiter=",")
 
+
+    # TODO: this could be done more systematically, for every metadata tag
+    # for now is enough like this though
+    def get_metadata(self, movie, datatype):
+        self.metadata = {}
+        if datatype == 'ImageDescription':
+            info = movie.pages[0].tags['ImageDescription'].value.split('\r')
+        if datatype == 'Software':
+            info = movie.pages[0].tags['Software'].value.split('\n')
+        for i in info:
+            k,v = i.split('=')
+            self.metadata[k.strip()] = v.strip()
+        # ImageDescription data is 'easier' 
+        if datatype == 'ImageDescription':
+            self.frameRate = float(self.metadata["state.acq.frameRate"])
+            self.zoomFactor = float(self.metadata["state.acq.zoomFactor"])
+            self.fov = 610
+            print("Field of view assumed to be 610, but do check this")
+        if datatype == 'Software':
+            # Software metadata is more accurate, so no exactly 20hz, for example
+            self.frameRate = round(float(self.metadata['SI.hRoiManager.scanFrameRate']))
+            self.zoomFactor = float(self.metadata['SI.hRoiManager.scanZoomFactor'])
+            # data for FOV
+            fov_um_data = self.metadata['SI.hRoiManager.imagingFovUm']
+            fov_ums = np.array([x.split() for x in fov_um_data[1:-1].split(";")]).astype(float)
+            sx = abs(max(fov_ums[:,0])-min(fov_ums[:,0]))
+            sy = abs(max(fov_ums[:,1])-min(fov_ums[:,1]))
+            if sx == sy:
+                self.fov = int(sx * self.zoomFactor)
+            else:
+                raise Exception("\nimage is not originally squared?/n")
+        
+    # makes steps from linear arr with changing values
+    def mk_stimulus(self, raw_movie, delta=0.05):
+        # make stimulus array (depending on microscope)
+        if len(raw_movie.shape) == 4:
+            self.stimulus = raw_movie[:,1,:,:].mean(axis=(1,2))
+        else:
+            self.stimulus = raw_movie[1::2].mean(axis=(1,2))
+            self.stimulus /= self.stimulus.max()
+        # normalize
+        if self.stimulus.max() > 1:
+            self.stimulus = self.stimulus/self.stimulus.max()
+        # this has 1 more val than linspace (includes 0 and final)
+        self.stimulus2d = np.zeros((2,self.nframes))
+        self.stimulus2d[0] = np.arange(self.nframes)/self.frameRate
+        self.stimulus2d[1] = self.stimulus
+        if self.igor:
+            plt.savefig(f'{self.savepath}_stimulus.png')
 
     def mk_names(self):
         fdir = f'{os.path.sep}'.join(self.fpath.split(os.path.sep)[:-1])
@@ -161,8 +200,8 @@ class KS_pipeline:
         frame_mean = self.movie.mean(axis=(1,2))
         def exp_decay(t,A,tau,C):
             return A*np.exp(-t/tau)+C
-        p0 = [frame_mean[0] - frame_mean[-1], self.nframes/self.frequency/2, frame_mean[-1]]
-        time = np.arange(self.nframes)/self.frequency
+        p0 = [frame_mean[0] - frame_mean[-1], self.nframes/self.frameRate/2, frame_mean[-1]]
+        time = np.arange(self.nframes)/self.frameRate
         params,_ = curve_fit(exp_decay,time,frame_mean,p0=p0,maxfev=10000)
         fit_curve = exp_decay(time,*params)
         self.movie = self.movie / np.maximum(fit_curve[:,None,None],1e-8)
@@ -175,11 +214,22 @@ class KS_pipeline:
 
 
     # decouple baseline & activity
-    def stim_transitions(self):
+    def stim_transitions(self,delta=0.1):
         # make baseline & activity indices
-        bi,bf = self.steps[0::self.steps.shape[0]-1]
-        self.baseline_idxs = np.concatenate((np.arange(bi[0],bi[1]),np.arange(bf[0],bf[1])))
-        self.activity_idxs = np.arange(bi[1],bf[0])
+        # bi,bf = self.steps[0::self.steps.shape[0]-1]
+        # self.baseline_idxs = np.concatenate((np.arange(bi[0],bi[1]),np.arange(bf[0],bf[1])))
+        # self.activity_idxs = np.arange(bi[1],bf[0])
+        # get approx mean for comparison
+        bval = self.stimulus[:10].mean()
+        baseline = np.where(abs(self.stimulus-bval) < bval*delta, 1, 0)
+        # 500 mls in frames
+        min_bs_frames = int(500/self.frameRate)
+        bs_windows_start = np.where(baseline-np.roll(baseline,1)==1)[0]
+        for i in bs_windows_start:
+            baseline[i:i+min_bs_frames+1] = 0
+        self.baseline_idxs = baseline.nonzero()[0]
+        self.activity_idxs = np.ones(self.stimulus.size)
+        self.activity_idxs[self.baseline_idxs] = 0
         if self.debug:
             print('in stim_transitions()')
             import pdb; pdb.set_trace()
@@ -356,7 +406,7 @@ class KS_pipeline:
     def plot_traces(self, n=5, title=''):
         f, (a0,a1) = plt.subplots(2,1, gridspec_kw={'height_ratios': [1,7]})
         # for traces in seconds
-        t = np.linspace(0,self.dff_traces[0].size/self.frequency,self.dff_traces[0].size)
+        t = np.linspace(0,self.dff_traces[0].size/self.frameRate,self.dff_traces[0].size)
         a0.plot(t,self.stimulus)
         a0.set_xlim(xmin=0, xmax=self.duration)
         a0.set_xticks([])
@@ -379,7 +429,7 @@ class KS_pipeline:
     def plot_raster(self, title=''):
         f, (a0,a1) = plt.subplots(2,1, gridspec_kw={'height_ratios': [1,7]})
         # for traces in seconds
-        t = np.linspace(0,self.dff_traces[0].size/self.frequency,self.dff_traces[0].size)
+        t = np.linspace(0,self.dff_traces[0].size/self.frameRate,self.dff_traces[0].size)
         a0.plot(t,self.stimulus)
         a0.set_xlim(xmin=0, xmax=self.duration)
         a0.set_xticks([])
@@ -407,43 +457,19 @@ class KS_pipeline:
 
     # simple fx to transform to seconds
     def plot_in_seconds(self,arr):
-        t = np.linspace(0,arr.size/self.frequency,arr.size)
+        t = np.linspace(0,arr.size/self.frameRate,arr.size)
         plt.plot(t,arr)
         plt.show()
 
-    # makes steps from linear arr with changing values
-    def mk_steps(self, raw_movie, delta=0.2, start_val=1, baseline=True):
-        # make stimulus array
-        arr = raw_movie[1::2].mean(axis=(1,2))
-        arr /= arr.max()
-        # normalize
-        if arr.max() > 1:
-            arr = arr/arr.max()
-        i0, vx = 0, start_val
-        steps = []
-        for i in range(arr.size-1):
-            if abs(arr[i+1] - arr[i]) > arr[i]*delta:
-                dx = (arr[i+1]-arr[i])/abs(arr[i+1]-arr[i])
-                # index start, index end, step val
-                steps.append([i0, i+1, vx])
-                i0 = i+1
-                vx += dx
-        if vx != steps[-1][2]:
-            interval = steps[-1][1] - steps[-1][0]
-            steps.append([i0, i0+interval, vx])
-        if baseline:
-            # append ending
-            if steps[-1][1] < arr.size:
-                steps.append([steps[-1][1], arr.size, vx])
-        else:
-            del(steps[0])
-        return arr, np.array(steps).astype(int)
+    
 
-
+        
 # fpath = '/Users/f/Desktop/100226/F1/STR/CR_1HZ_AF10016_STR.tif'
 # fpath = '/Users/f/Desktop/100226/F1/STR/STEP_AF10017_STR.tif'
 # fpath = '/Users/f/Desktop/100226/F1/STR/TF_AF10018-STR.tif'
-# ox = KS_pipeline(fpath)
+fpath =  "C:\\Users\\Fernando\\zf\\data\\data_mp\\HUCxiGlu_250625\\f1_ot1_z13_r1_00001.tif"
+# fpath = "C:\\Users\\Fernando\\zf\\data\\data_jose\\glu_a1\\TF_pre_AF10_a1002.tif"
+ox = KS_pipeline(fpath)
 
 
 # if __name__ == "__main__":
