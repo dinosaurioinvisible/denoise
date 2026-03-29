@@ -3,7 +3,7 @@
 import numpy as np
 import tifffile as tf
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+# import matplotlib.gridspec as gridspec
 
 from scipy.optimize import curve_fit
 from scipy.ndimage import shift, gaussian_filter
@@ -29,15 +29,15 @@ import pandas as pd
 
 class KS_pipeline:
     def __init__(self, fpath,
+        synapse_size = 2,               # aprox. size in microns
         percentile = 70,                # for peaks
         min_distance = 3,               # between pixel peaks
-        roi_radius = 3,                 # radius for synapses
         sigma_smooth = 0,               # for gaussian filter in ΔF map
         sigma_fit = 1,                  # for 2d gaussian fit
         lambda_reg = 0.05,              # regul. strength in ridge regression
         edge_margin = 3,                # could be variable
         alpha = 0.05,                   # threshold for p-value significance
-        #
+        # binary options
         registration = True,
         bleach_correction = True,
         igor = True,
@@ -45,6 +45,7 @@ class KS_pipeline:
         debug = False
         ):
             self.fpath = fpath
+            self.synapseSize = synapse_size
             self.threshold_percentile = percentile
             self.min_distance = min_distance
             self.sigma_smooth = sigma_smooth
@@ -56,15 +57,16 @@ class KS_pipeline:
             self.igor = igor
             self.debug = debug
             self.mk_plots = mk_plots
-            self.run()
             # this could be dynamic (fov/lines/zoom)
-            self.roi_radius = roi_radius
+            # self.roi_radius = roi_radius
+            self.run()
 
     def run(self):
         self.load_movie()
         self.register()
         self.interpolate()
         self.bleach_correction()
+        self.define_roi_size()
         self.stim_transitions()
         self.mk_deltaf_map()
         self.ks_distance()
@@ -73,7 +75,6 @@ class KS_pipeline:
             self.ridge_demixing()
             self.compute_dff_traces()
             if self.mk_plots:
-                self.plot_in_seconds(self.stimulus)
                 self.plot_synapses()
                 self.plot_traces()
                 self.plot_raster()
@@ -85,7 +86,7 @@ class KS_pipeline:
         x = tf.TiffFile(self.fpath)
         raw_movie = x.asarray()
         # metadata (only for scanImage)
-        # de-interleave (depending on microscope)
+        # & de-interleave (depending on microscope)
         if len(raw_movie.shape) == 4:
             self.metadata = self.get_metadata(x, datatype='Software')
             self.movie = raw_movie[:,0,:,:]
@@ -94,13 +95,22 @@ class KS_pipeline:
             self.movie = raw_movie[0::2]
         self.nframes = self.movie.shape[0]
         self.duration = self.nframes/self.frameRate
+        # for output data
+        if self.igor:
+            self.mk_names()
         self.mk_stimulus(raw_movie)
         if self.debug:
             print('in load_movie()')
             import pdb; pdb.set_trace()
-        if self.igor:
-            self.mk_names()
-            np.savetxt(f'{self.savepath}_stimulus2d.csv', self.stimulus2d, delimiter=",")
+
+
+    def mk_names(self):
+        fdir = f'{os.path.sep}'.join(self.fpath.split(os.path.sep)[:-1])
+        fname = self.fpath.split(os.path.sep)[-1].split('.')[0]
+        savedir = os.path.join(fdir,'python_output')
+        self.savepath = os.path.join(savedir,fname)
+        if not os.path.isdir(savedir):
+            os.mkdir(savedir)
 
 
     # TODO: this could be done more systematically, for every metadata tag
@@ -114,7 +124,7 @@ class KS_pipeline:
         for i in info:
             k,v = i.split('=')
             self.metadata[k.strip()] = v.strip()
-        # ImageDescription data is 'easier' 
+        # ImageDescription data is 'easier'
         if datatype == 'ImageDescription':
             self.frameRate = float(self.metadata["state.acq.frameRate"])
             self.zoomFactor = float(self.metadata["state.acq.zoomFactor"])
@@ -133,7 +143,8 @@ class KS_pipeline:
                 self.fov = int(sx * self.zoomFactor)
             else:
                 raise Exception("\nimage is not originally squared?/n")
-        
+
+
     # makes steps from linear arr with changing values
     def mk_stimulus(self, raw_movie, delta=0.05):
         # make stimulus array (depending on microscope)
@@ -145,20 +156,21 @@ class KS_pipeline:
         # normalize
         if self.stimulus.max() > 1:
             self.stimulus = self.stimulus/self.stimulus.max()
-        # this has 1 more val than linspace (includes 0 and final)
+        # in theory there's no capture of singal t=0
+        # so array should go from 0.05 to t_f
+        # i'm making 0 to t_f - 0.05, for simplicity
+        # but it should be the other way
         self.stimulus2d = np.zeros((2,self.nframes))
         self.stimulus2d[0] = np.arange(self.nframes)/self.frameRate
         self.stimulus2d[1] = self.stimulus
+        if self.mk_plots:
+            plt.plot(*self.stimulus2d)
+            plt.show()
         if self.igor:
-            plt.savefig(f'{self.savepath}_stimulus.png')
-
-    def mk_names(self):
-        fdir = f'{os.path.sep}'.join(self.fpath.split(os.path.sep)[:-1])
-        fname = self.fpath.split(os.path.sep)[-1].split('.')[0]
-        savedir = os.path.join(fdir,'python_output')
-        self.savepath = os.path.join(savedir,fname)
-        if not os.path.isdir(savedir):
-            os.mkdir(savedir)
+            # tf.imwrite(f'{self.savepath}_stimulus.tif', self.stimulus2d)
+            # np.savetxt(f'{self.savepath}_stimulus2d.csv', self.stimulus2d, delimiter=",")
+            df = pd.DataFrame({'time': self.stimulus2d[0], 'intensity': self.stimulus})
+            df.to_csv(f'{self.savepath}_stimulus.csv', index=False)
 
 
     # i'm leaving this as independent in case we want
@@ -185,7 +197,6 @@ class KS_pipeline:
         # order 1: bilinear
         self.movie = zoom(self.movie, zoom=(1,zoom_ratio,1), order=1)
         self.nrows, self.ncols = self.movie.shape[1:]
-        self.pixelSize = self.fov/self.nrows/self.zoomFactor
         if self.debug:
             print('in interpolate()')
             import pdb; pdb.set_trace()
@@ -213,12 +224,17 @@ class KS_pipeline:
             tf.imwrite(f'{self.savepath}.tif', self.movie)
 
 
+    # define the radius for 2d gaussian demixing
+    def define_roi_size(self):
+        # pixel size in microns
+        self.pixelSize = self.fov/self.nrows/self.zoomFactor
+        # how many pixels per synapse + round it up, because most likely
+        # synapses won't fit exactly the pixel grid -> |(| |)|
+        self.roi_radius = np.ceil(self.synapseSize/self.pixelSize)
+
+
     # decouple baseline & activity
     def stim_transitions(self,delta=0.1):
-        # make baseline & activity indices
-        # bi,bf = self.steps[0::self.steps.shape[0]-1]
-        # self.baseline_idxs = np.concatenate((np.arange(bi[0],bi[1]),np.arange(bf[0],bf[1])))
-        # self.activity_idxs = np.arange(bi[1],bf[0])
         # get approx mean for comparison
         bval = self.stimulus[:10].mean()
         baseline = np.where(abs(self.stimulus-bval) < bval*delta, 1, 0)
@@ -228,8 +244,9 @@ class KS_pipeline:
         for i in bs_windows_start:
             baseline[i:i+min_bs_frames+1] = 0
         self.baseline_idxs = baseline.nonzero()[0]
-        self.activity_idxs = np.ones(self.stimulus.size)
-        self.activity_idxs[self.baseline_idxs] = 0
+        activity = np.ones(self.stimulus.size)
+        activity[self.baseline_idxs] = 0
+        self.activity_idxs = np.where(activity==1)[0]
         if self.debug:
             print('in stim_transitions()')
             import pdb; pdb.set_trace()
@@ -297,6 +314,10 @@ class KS_pipeline:
             return
         # sort by ΔF/F and keep coords only
         self.synapses = np.array(sorted(self.ks_peaks, key=lambda x:x[2], reverse=True))[:,:2].astype(int)
+        # masked 2d array for synapses
+        self.synapses_mask = np.ones((self.movie.shape[1:])).astype(int) * -1
+        for ei,(row,col) in enumerate(self.synapses,1):
+            self.synapses_mask[row,col] = ei
         # export data
         if self.debug:
             print('in ks_distance()')
@@ -304,8 +325,9 @@ class KS_pipeline:
         if self.igor:
             df1 = pd.DataFrame(self.ks_peaks, columns=["row","col","dF/F","ks-d","ks-p"])
             df2 = pd.DataFrame(self.synapses, columns=["row","col"])
-            df1.to_csv(f'{self.savepath}_ks-peaks.csv')
+            df1.to_csv(f'{self.savepath}_peaks.csv')
             df2.to_csv(f'{self.savepath}_synapses.csv')
+            tf.imwrite(f'{self.savepath}_roimask.tif', self.synapses_mask)
 
 
     # TODO: understand better the last part here
@@ -354,12 +376,12 @@ class KS_pipeline:
 
     # TODO: why is there a different baseline window here?
     # TODO: check if tiff is best way to save
-    # i assume is the same as only the first window?
+    # TODO: ask leon?
+    # i assume is the same as only the first window
     def compute_dff_traces(self):
-        a,b = self.steps[0][:2]
-        # original (don't understand why though)
+        # original:
         # baseline_idxs_dff = np.arange(20,b)
-        baseline_idxs_dff = np.arange(a,b)
+        baseline_idxs_dff = np.arange(self.activity_idxs[0])
         # get traces
         self.dff_traces = []
         for i,amp in enumerate(self.gs_amps):
@@ -371,7 +393,7 @@ class KS_pipeline:
             print('in compute_dff_traces()')
             import pdb; pdb.set_trace()
         if self.igor:
-            tf.imwrite(f'{self.savepath}_dff-traces.tif', self.dff_traces)
+            tf.imwrite(f'{self.savepath}_dff_traces.tif', self.dff_traces)
 
 
     # imshow with sorted synapses
@@ -396,6 +418,7 @@ class KS_pipeline:
         plt.tight_layout()
         # plt.savefig(f'{self.savepath}_synapses.png')
         plt.show()
+
 
     # plot best traces
     # TODO: why re-sorting using ΔF/F?
@@ -423,7 +446,8 @@ class KS_pipeline:
         plt.tight_layout()
         # plt.savefig(f'{self.savepath}_{n}traces.png')
         plt.show()
-        
+
+
     # TODO: what is vmax here?
     # basically same as before, but for all
     def plot_raster(self, title=''):
@@ -448,12 +472,13 @@ class KS_pipeline:
         plt.tight_layout()
         # plt.savefig(f'{self.savepath}_rasterplot.png')
         plt.show()
-        
+
+
     # TODO: understand this part well
     # def plot_bleeding(self,title='Spatial cross-talk comparison'):
       # get traces from same pixels before demixing
       # compute correlation matrices & spatial distances
-        
+
 
     # simple fx to transform to seconds
     def plot_in_seconds(self,arr):
@@ -461,51 +486,51 @@ class KS_pipeline:
         plt.plot(t,arr)
         plt.show()
 
-    
 
-        
-# fpath = '/Users/f/Desktop/100226/F1/STR/CR_1HZ_AF10016_STR.tif'
+
+# for testing
+# fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_ca_layering/100226/F1/STR/CR_1HZ_AF10016_STR.tif'
 # fpath = '/Users/f/Desktop/100226/F1/STR/STEP_AF10017_STR.tif'
 # fpath = '/Users/f/Desktop/100226/F1/STR/TF_AF10018-STR.tif'
-fpath =  "C:\\Users\\Fernando\\zf\\data\\data_mp\\HUCxiGlu_250625\\f1_ot1_z13_r1_00001.tif"
+# fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/glu_a2/Steps_pre_AF10_a1014.tif'
+# fpath =  "C:\\Users\\Fernando\\zf\\data\\data_mp\\HUCxiGlu_250625\\f1_ot1_z13_r1_00001.tif"
 # fpath = "C:\\Users\\Fernando\\zf\\data\\data_jose\\glu_a1\\TF_pre_AF10_a1002.tif"
-ox = KS_pipeline(fpath)
+# ox = KS_pipeline(fpath)
 
 
 # if __name__ == "__main__":
 #     movie = sys.argv[0]
 #     percentile = 70
 #     min_distance = 3
-#     roi_radius = 3
+#     synapse_size = 2
 #     sigma_mooth = 0
 #     sigma_fit = 3
-#     baseline_windows = [(0,5), (55,60)]
 #     debug = False
+#     igor = True
+#     mk_plots = False
 #     for ei,arg in enumerate(sys.argv):
 #         if arg.startswith('--percentile='):
 #             percentile = float(arg.split('=')[1])
 #         if arg.startswith('--min_distance='):
 #             min_distance = float(arg.split('=')[1])
-#         if arg.startswith('--roi_radius='):
-#             roi_radius = float(arg.split('=')[1])
-#         if arg.startswith('--patch_radius='):
-#             patch_radius = float(arg.split('=')[1])
+#         if arg.startswith('--synapse_size='):
+#             synapse_size = float(arg.split('=')[1])
 #         if arg.startswith('--sigma_smooth='):
 #             sigma_smooth = float(arg.split('=')[1])
 #         if arg.startswith('--sigma_fit='):
 #             sigma_fit = float(arg.split('=')[1])
-#         if arg.startswith('--baseline_windows='):
-#             baseline_windows = arg.split('=')[1]
 #         if arg == '--debug':
 #             debug == True
-#         if arg == '--igor':
-#             igor = True
-#     x = KS_pipeline(path_to_movie=movie, debug=debug,
+#         if arg == '--not_igor':
+#             igor = False
+#         if arg == '--make_plots':
+#             mk_plots=True
+#     x = KS_pipeline(path_to_movie=movie,
+#         debug=debug, igor=igor, mk_plots=mk_plots,
 #         percentile=percentile,
 #         min_distance=min_distance,
-#         roi_radius=roi_radius,
+#         synapse_size=synapse_size,
 #         sigma_fit=sigma_fit,
-#         baseline_windows=baseline_windows
 #         )
 
 
