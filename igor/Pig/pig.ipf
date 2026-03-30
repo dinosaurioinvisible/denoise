@@ -4,10 +4,10 @@
 #include "LoadMultipleFiles"
 
 // ~ index
-// 1. runCommandOnMacosShell - to run a simple command on macos
+// 1. runCommandOnWindowsCmd, runCommandOnMacosShell - to run single commands
 // 2. runPythonScriptOnMovieWindows - to run a script on a movie in windows
 // 3. runPythonScriptOnMovieMacOs - to run a script on a movie in macos
-// 4. definePythonInterpreterPath - to look up for, or change python interp.
+// 4. definePythonInterpreterPath - to look up for a python interp.
 // 5. pigLoadMovie - simpler than ART Load, for python processing
 // 6. pigSelectPythonScript - to choose a python script
 // 7. pigRunPythonScriptOnMovie - general fx
@@ -49,40 +49,67 @@
 	// so, either we pass the location to the interpreter (text or window) 
 	// or search in common locations, like conda, miniconda, homebrew, etc
 	// here we'll try to guess, and if this fails, ask for user input
+	
+	// note on windows:
+	// in windows calling programs is more straightforward
+	// and you can do things like:
+	// executeScriptText "notepad.exe"
+	// so you don't really need a function for that
+	// however, calling cmd itself has to be done explicitely
+	// so we need to use 'cmd.exe /c' for cmd instructions like echo, >>, etc.
+	// unlike macos which passes the command directly to the shell (bash/zsh)
+
 
 // 0
 // we want to define paths that can be reused
 // for the path to the python interpreter: 
 // there is a function that may be called only once
-// we're creating a txt file that can be read every time pigthon is loaded
+// we're creating a txt file that can be read every time pig is loaded
 // the txt contains the path to the python interpreter
 // that path (if exists) is loaded as a global variable
+// when pressing the 'python' button
 
 
 // 1
-// basic fx for running single shell commands in macos
-// print s_value isn't really needed, can be ommitted, but is useful
+// basic fx for running single commands in macos shell & windows cmd
+// print s_value isn't really needed, can be ommitted, but may be useful
+function runCommandOnWindowsCmd(string command)
+	executeScriptText/z "cmd.exe /c "+command
+	print s_value
+end
+
 function runCommandOnMacosShell(string command)
 	string igorcmdx
 	sprintf igorcmdx, "do shell script \"%s\"", command
 	executeScriptText/z igorcmdx
 	print s_value
-end
+end 
 
 
 // 2
-// this just executes a python script from the terminal - windows only
-function runPythonScriptOnMovieWindows(string path_to_python_script, string path_to_movie)
-	ExecuteScriptText "python "+path_to_python_script+" "+path_to_movie
+// runs a python script into a movie using windows cmd
+function runPythonScriptOnMovieWindows(string path_to_python, string path_to_python_script, string path_to_movie)
+	string igorcmd = path_to_python+" "+path_to_python_script+" "+path_to_movie
+	// you may want to comment out these 2 lines
+	print "\nwindows cmd command:"
+	print igorcmd
+	ExecuteScriptText/b/z "\""+path_to_python+"\" \""+path_to_python_script+"\" \""+path_to_movie+"\""
+	// s_value actually returns eventual errors in execution, so better not to comment this out
+	print "s_value:"
+   print s_value
 end
 
 
 // 3
-// on mac this is a pain, mostly because of the "do shell script"
+// on mac this can be a pain, mostly because of the "do shell script"
+// you can do without it, but it can get quite confusing
 function runPythonScriptOnMovieMacOs(string path_to_python, string path_to_python_script, string path_to_movie)
-	string igorcmd
-	sprintf igorcmd, "do shell script \"%s %s %s\"", path_to_python, path_to_python_script, path_to_movie
-	// better not to comment out these prints
+	// pawell fix, really classy
+	string igorcmd = "do shell script \"\'" + path_to_python+"\' \'" + path_to_python_script + "\' \'" + path_to_movie + "\'\""
+	// for debugging only
+	// string igorcmd
+	// sprintf igorcmd, "do shell script \"%s %s %s\"", path_to_python, path_to_python_script, path_to_movie
+	// not necessary, but guess more info is better than less
 	print "\nshell command:"
 	print igorcmd
    executeScriptText/b/z igorcmd
@@ -95,27 +122,42 @@ end
 // 4
 // look up for txt with python interpreter in default txt, otherwise create one
 function pigDefinePythonInterpreterPath()
-	// search for file in pigthon folder in user procedures
+	// define path to pig directory in users procedures
 	string pigPath = SpecialDirPath("Igor Pro User Files", 0, 0, 0) + "User Procedures:Pig:"
+	// create pig folder if it doesn't exists
+	// q: supresses dialogs, z: prevents abort if folder doesn't exist
+	getFileFolderInfo/q/z pigPath
+	if (v_flag != 0)
+		// c: creates dir, /o: overwrites to avoid error
+		newPath/c/o pigPath, pigPath
+	endif
+	// search for txt file with location of python interpreter in pig folder
 	string pigPythonPath_txt = pigPath + "pig_path_to_python_interpreter.txt"
 	variable fref
-	string line
+	// string line
+	string pathToTxt
 	string platform = IgorInfo(2)
 	// try to read python interpreter location from txt file in pig folder
 	// r: read only, z: prevents abort if file doesn't exist
 	open/r/z fref as pigPythonPath_txt
+	// if not, user has choose an interpreter
 	if (v_flag != 0)
 		// TODO
-		// string message = "Select a Python interpreter"
-		// is enough with python3 only?
+		// check: is enough with python3 only?
 		GetFileFolderInfo/d/q
+		if (v_flag == -1)
+			Abort
+		endif
 		string pythonEnvironmentDir = s_path
-		string path_to_python = pythonEnvironmentDir+"bin:python3"
-		// for macos: make unix paths
+		// create txt file with path to python interpreter for future use
 		if (CmpStr(platform, "Windows") != 0)
-			string pathToPython = ParseFilePath(5, path_to_python, "/", 0, 0)
+			// for macos: make unix paths
+			string path_to_python = pythonEnvironmentDir+"bin:python3"
+			string pathToPython = parseFilePath(5, path_to_python, "/", 0, 0)
 			// ParseFilePath fails if file doesn't exist yet
-			string pathToTxt = pigPythonPath_txt
+
+			// string pathToTxt = pigPythonPath_txt
+			pathToTxt = pigPythonPath_txt
 			pathToTxt = ReplaceString("Macintosh HD:", pathToTxt, "/")
 			pathToTxt = ReplaceString(":", pathToTxt, "/")
 			// for debugging
@@ -127,16 +169,35 @@ function pigDefinePythonInterpreterPath()
 			executeScriptText cmd
 			print "\npath to python saved at: "+pathToTxt
 		else
-			// TODO
-			// windows
-			// re-check this
-			ExecuteScriptText "python "+pathToPython+" > "+pigPythonPath_txt
+			// for windows the files to interpreter are  usually different
+			path_to_python = pythonEnvironmentDir+"Scripts:python.exe"
+			pathToPython = parseFilePath(5, path_to_python, "\\", 0, 0)
+			pathToTxt = parseFilePath(5, pigPythonPath_txt, "\\", 0, 0)
+			// for debugging only
+			// print path_to_python
+			// print pathToPython
+			// print pigPythonPath_txt
+			// print pathToTxt
+			executeScriptText "cmd.exe /c echo "+pathToPython+" >> \""+pathToTxt+"\""
+			print "\npath to python saved at: "+pathToTxt
 		endif
 	// if txt file already exists
 	else
 		freadLine fref, pathToPython
 		close fref
-		print "\npython path in txt file at: "+pathToPython
+		// just for information, when loading pathToPython from txt
+		// this is a bit weird, but couldn't make it work for null otherwise
+		if (numtype(strlen(pathToTxt)) == 2)
+			if (CmpStr(platform, "Windows") != 0)
+				pathToTxt = parseFilePath(5, pigPythonPath_txt, "/", 0, 0)
+			else
+				pathToTxt = parseFilePath(5, pigPythonPath_txt, "\\", 0, 0)
+			endif
+		endif
+		// print info
+		print "\n\tusing python interpreter at: "+pathToPython
+		print "\tpython path saved in txt file at: "+pathToTxt
+		print "\tremove txt file to change interpreter"
 	endif
 	// save as constant - /g: global
 	// string/g pigPythonPath = pathToPython
@@ -162,21 +223,19 @@ function pigLoadMovie()
 	endif
 	rename $s_filename, $movieName
 	// retrieve necessary info
+	// this works eith the older version of scan image only
+	// when working with the newer version, python will return an _info.txt file
+	// with FOV, zoomFactor & frameRate
+	print s_info
 	string metadata = s_info
 	// get info - to access note info: print note($"movieName")
 	string expDate = stringByKey("state.internal.triggerTimeString",s_info,"=","\r")
-	variable nframes = numberByKey("state.acq.numberOfFrames",s_info,"=","\r")
-	variable nrows = numberByKey("state.acq.linesPerFrame",s_info,"=","\r")
-	variable ncols = numberByKey("state.acq.pixelsPerLine",s_info,"=","\r")
+	//variable msPerLine = numberByKey("state.acq.msPerLine",s_info,"=","\r")
 	variable frameRate = numberByKey("state.acq.frameRate",s_info,"=","\r")
-	variable msPerLine = numberByKey("state.acq.msPerLine",s_info,"=","\r")
 	variable zoomFactor = numberByKey("state.acq.zoomFactor",s_info,"=","\r")
 	note $movieName, "expDate="+expDate
-	note $movieName, "nframes="+num2str(nframes)
-	note $movieName, "nrows="+num2str(nrows)
-	note $movieName, "ncols="+num2str(ncols)
+	//note $movieName, "msPerLine="+num2str(msPerLine)
 	note $movieName, "frameRate="+num2str(frameRate)
-	note $movieName, "msPerLine="+num2str(msPerLine)
 	note $movieName, "zoomFactor="+num2str(zoomFactor)
 	// note $movieName, metadata
 	note $movieName, "fdir="+s_path
@@ -189,6 +248,8 @@ function pigLoadMovie()
 	string platform = IgorInfo(2)
 	if (CmpStr(platform, "Windows") != 0)
 		string/g pigPathToMovie = parseFilePath(5,filePath,"/",0,0)
+	else 
+		string/g pigPathToMovie = parseFilePath(5,filePath,"\\",0,0)
 	endif
 	print "\nloaded movie from: "+pigPathToMovie
 end
@@ -201,15 +262,29 @@ function pigSelectPythonScript()
 	string filter_script = ".py"
 	string message_script = "select python script"
 	Open/d/r/f=filter_script/m=message_script refNum
+	// print whether current script is loaded or not
+	if (cmpstr(s_filename,"") == 0)
+		print "\n\tno .py file selected"
+		svar pigPathToScript
+		if (numtype(strlen(pigPathToScript)) == 2)
+			print "\tno script chosen yet"
+		else
+			print "\tcurrent python script: "+pigPathToScript
+		endif
+		abort 
+	endif
 	string path_to_python_script = s_fileName
-	print path_to_python_script
-	// mode 5 is for macOS
+	//for debugging
+	//print path_to_python_script
+	//mode 5 is for turning igor spaths into unix/windows type paths
 	string platform = IgorInfo(2)
 	if (CmpStr(platform, "Windows") != 0)
 		path_to_python_script = parseFilePath(5,path_to_python_script,"/",0,0)
+	else
+		path_to_python_script = parseFilePath(5,path_to_python_script,"\\",0,0)
 	endif
 	string/g pigPathToScript = path_to_python_script
-	print "\nselected python script at: "+pigPathToScript
+	print "\n\tselected python script at: "+pigPathToScript
 end
 
 
@@ -219,11 +294,9 @@ function pigRunPythonScriptOnMovie([string pathToPython, string pathToScript, st
 	// check platform
 	string platform = IgorInfo(2)
 	
-	// 1. check for paths
+	// 1. lookup paths
 	
 	// 1.1 check whether python interpreter has been defined
-	// TODO
-	// on windows: mk file
 	if (paramIsDefault(pathToPython) != 0)
 		// this functions looks up for, or creates a txt file with the path to python
 		// the path inside the txt file is made a global string = pigthonPythonPath
@@ -260,22 +333,41 @@ function pigRunPythonScriptOnMovie([string pathToPython, string pathToScript, st
 		pathToMovie = pigPathToMovie
 	endif
 	
-	// print as check
-	print "\npig:"
-	print "path to python interpreter: "+pathToPython
-	print "path to python script: "+pathToScript
-	print "path to movie: "+pathToMovie
 	
-	// 2. run python script from terminal
-	// TODO
-	// popup windows
+	// 2. print & double check
+	print "\npig:"
+	// path to interpreter
+	if (numtype(strlen(pathToPython)) == 2)
+		print "you need to choose a python interpreter"
+		abort
+	else
+		print "path to python interpreter: "+pathToPython
+	endif
+	// path to python script
+	if (numtype(strlen(pigPathToScript)) == 2)
+		print "you need to choose some python script"
+		abort
+	else
+		print "path to python script: "+pathToScript
+	endif
+	// path to movie
+	if (numtype(strlen(pigPathToMovie)) == 2)
+		print "you haven't chosen a movie yet"
+		abort
+	else
+		print "path to movie: "+pigPathToMovie
+	endif
+
+
+	// 3. run python script from terminal
 	if (CmpStr(platform, "Windows") == 0)
-		RunPythonScriptOnMovieWindows(pathToScript, pathToMovie)
+		RunPythonScriptOnMovieWindows(pathToPython, pathToScript, pathToMovie)
 	else
 		RunPythonScriptOnMovieMacOs(pathToPython, pathToScript, pathToMovie)
 	endif
 	
-	// 3. load files in new folder in igor
+	
+	// 4. load files from python output folder into igor
 	string dirpath
 	if (CmpStr(platform, "Windows") == 0)
 		dirpath = pathToMovie[0,strsearch(pathToMovie, "\\", strlen(pathToMovie)-1, 3)]
@@ -283,18 +375,20 @@ function pigRunPythonScriptOnMovie([string pathToPython, string pathToScript, st
 		dirpath = pathToMovie[0,strsearch(pathToMovie, "/", strlen(pathToMovie)-1, 3)]
 	endif
 	string path_to_python_output = dirpath+"python_output"
-	// for debugging
-	print "temporal files at: "+path_to_python_output
 	LoadFiles(dirpath=path_to_python_output)
+	print "temporal files at: "+path_to_python_output
 	
-	// 4. remove temporal folders
-	// TODO
-	// same for windows
-	string cmd
-	sprintf cmd, "do shell script \"rm -rf %s\"", path_to_python_output
-	executeScriptText/z cmd
-	print s_value
 	
+	// 5. remove temporal folders
+	if (CmpStr(platform, "Windows") == 0)
+		executeScriptText/b/z "cmd.exe /c rmdir /s /q "+path_to_python_output 
+	else
+		string cmd
+		sprintf cmd, "do shell script \"rm -rf %s\"", path_to_python_output
+		executeScriptText/b/z cmd
+		print s_value
+	endif
+	print "removed temporal files from: "+path_to_python_output
 end
 
 

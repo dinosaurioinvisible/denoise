@@ -3,7 +3,6 @@
 import numpy as np
 import tifffile as tf
 import matplotlib.pyplot as plt
-# import matplotlib.gridspec as gridspec
 
 from scipy.optimize import curve_fit
 from scipy.ndimage import shift, gaussian_filter
@@ -11,20 +10,12 @@ from scipy.stats import ks_2samp
 from skimage.registration import phase_cross_correlation
 from skimage.feature import peak_local_max
 
+# import sys
 import os
-import sys
 from scipy.ndimage import zoom
 import pandas as pd
 
 
-# TODO python:
-# ∆hf = 23 or 64 bits
-# return stimulus wave
-# data redimension dff_traces -> 2 dims instead of 3
-# 0 - 60
-# auto-detect baseline/event
-# is it overwriting ks-peaks csv?
-# auto adjust pixel radius based on zoom
 
 
 class KS_pipeline:
@@ -57,7 +48,6 @@ class KS_pipeline:
             self.igor = igor
             self.debug = debug
             self.mk_plots = mk_plots
-            # this could be dynamic (fov/lines/zoom)
             # self.roi_radius = roi_radius
             self.run()
 
@@ -85,6 +75,12 @@ class KS_pipeline:
         # assumes raw movie
         x = tf.TiffFile(self.fpath)
         raw_movie = x.asarray()
+        if len(raw_movie.shape) < 3 or raw_movie.shape[0] < 10:
+            raise Exception("this doesn't seem to be a framescan")
+        # for output data
+        if self.igor:
+            self.mk_names()
+            print(f'loaded movie from: {self.fpath}')
         # metadata (only for scanImage)
         # & de-interleave (depending on microscope)
         if len(raw_movie.shape) == 4:
@@ -95,9 +91,6 @@ class KS_pipeline:
             self.movie = raw_movie[0::2]
         self.nframes = self.movie.shape[0]
         self.duration = self.nframes/self.frameRate
-        # for output data
-        if self.igor:
-            self.mk_names()
         self.mk_stimulus(raw_movie)
         if self.debug:
             print('in load_movie()')
@@ -127,6 +120,7 @@ class KS_pipeline:
         # ImageDescription data is 'easier'
         if datatype == 'ImageDescription':
             self.frameRate = float(self.metadata["state.acq.frameRate"])
+            self.dt = 1/self.frameRate
             self.zoomFactor = float(self.metadata["state.acq.zoomFactor"])
             self.fov = 610
             print("Field of view assumed to be 610, but do check this")
@@ -234,22 +228,26 @@ class KS_pipeline:
 
 
     # decouple baseline & activity
-    def stim_transitions(self,delta=0.1):
+    def stim_transitions(self,delta=0.1,post_window=500):
         # get approx mean for comparison
-        bval = self.stimulus[:10].mean()
-        baseline = np.where(abs(self.stimulus-bval) < bval*delta, 1, 0)
-        # 500 mls in frames
-        min_bs_frames = int(500/self.frameRate)
-        bs_windows_start = np.where(baseline-np.roll(baseline,1)==1)[0]
-        for i in bs_windows_start:
-            baseline[i:i+min_bs_frames+1] = 0
-        self.baseline_idxs = baseline.nonzero()[0]
-        activity = np.ones(self.stimulus.size)
-        activity[self.baseline_idxs] = 0
-        self.activity_idxs = np.where(activity==1)[0]
+        bval = self.stimulus[1:10].mean()
+        self.baseline = np.where(abs(self.stimulus-bval) < bval*delta, 0, 1)
+        # wx: window after which, even if baseline, signals reflect activity
+        # 500 mls in frames (frameRate = framesPerSecond, so half) = 1s/post_window
+        wx = int(self.frameRate/(1000/post_window))
+        # bis: points where baseline/resting intervals start (skips t=0)
+        bis = np.where(self.baseline-np.roll(self.baseline,1)==0)[0]
+        # discard post activity windows
+        for bi in bis:
+            self.baseline[bi:bi+wx] = 0
+        # remaining points are baseline/rest indices
+        self.baseline_idxs = np.where(self.baseline==0)[0]
+        self.activity_idxs = self.baseline.nonzero()[0]
         if self.debug:
             print('in stim_transitions()')
             import pdb; pdb.set_trace()
+        if self.igor:
+            print(f'baseline idxs: {self.baseline_idxs/self.frameRate}')
 
 
     # TODO: why is this before ks-distance?
@@ -315,7 +313,7 @@ class KS_pipeline:
         # sort by ΔF/F and keep coords only
         self.synapses = np.array(sorted(self.ks_peaks, key=lambda x:x[2], reverse=True))[:,:2].astype(int)
         # masked 2d array for synapses
-        self.synapses_mask = np.ones((self.movie.shape[1:])).astype(int) * -1
+        self.synapses_mask = np.ones((self.movie.shape[1:])) * -1
         for ei,(row,col) in enumerate(self.synapses,1):
             self.synapses_mask[row,col] = ei
         # export data
@@ -328,6 +326,19 @@ class KS_pipeline:
             df1.to_csv(f'{self.savepath}_peaks.csv')
             df2.to_csv(f'{self.savepath}_synapses.csv')
             tf.imwrite(f'{self.savepath}_roimask.tif', self.synapses_mask)
+        # txt info 
+        if self.igor:
+            f = open(f'{self.savepath}_info.txt', 'w')
+            f.write(f'fov={self.fov}\n')
+            f.write(f'nframes={self.nframes}')
+            f.write(f'frameRate={self.frameRate}\n')
+            f.write(f'duration={self.duration}')
+            f.write(f'dt={self.dt}')
+            f.write(f'zoomFactor={self.zoomFactor}\n')
+            f.write(f'pixelSize={self.pixelSize}\n')
+            f.write(f'roiRadius={self.roi_radius}')
+            f.write(f'nsynapses={self.synapses.shape[0]}')
+            f.close()
 
 
     # TODO: understand better the last part here
@@ -416,8 +427,10 @@ class KS_pipeline:
                 color='yellow',fontsize=8,
                 ha='center',va='center',fontweight='bold')
         plt.tight_layout()
-        # plt.savefig(f'{self.savepath}_synapses.png')
-        plt.show()
+        if self.igor:
+            plt.savefig(f'{self.savepath}_synapses.png')
+        else:
+            plt.show()
 
 
     # plot best traces
@@ -444,8 +457,10 @@ class KS_pipeline:
         a1.set_xlabel("seconds")
         plt.suptitle(title)
         plt.tight_layout()
-        # plt.savefig(f'{self.savepath}_{n}traces.png')
-        plt.show()
+        if self.igor:
+            plt.savefig(f'{self.savepath}_{n}traces.png')
+        else:
+            plt.show()
 
 
     # TODO: what is vmax here?
@@ -470,33 +485,44 @@ class KS_pipeline:
         a1.set_xlabel("seconds")
         plt.suptitle(title)
         plt.tight_layout()
-        # plt.savefig(f'{self.savepath}_rasterplot.png')
+        if self.igor:
+            plt.savefig(f'{self.savepath}_rasterplot.png')
+        else:
+            plt.show()
+
+    # quick stimulus plot 
+    def plot_stimulus(self):
+        plt.plot(*self.stimulus2d)
         plt.show()
-
-
+        
+    # same for baseline
+    def plot_baseline(self):
+        bx = np.ones(self.nframes)
+        bx[self.baseline_idxs] = 0
+        plt.plot(np.arange(self.nframes),bx)
+        plt.plot(self.stimulus)
+        plt.show()
+        
     # TODO: understand this part well
-    # def plot_bleeding(self,title='Spatial cross-talk comparison'):
+    # def plot_cross_talk_comparison(self,title='Spatial cross-talk comparison'):
       # get traces from same pixels before demixing
       # compute correlation matrices & spatial distances
 
 
-    # simple fx to transform to seconds
-    def plot_in_seconds(self,arr):
-        t = np.linspace(0,arr.size/self.frameRate,arr.size)
-        plt.plot(t,arr)
-        plt.show()
 
 
 
-# for testing
+# for testing & debugging
 # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_ca_layering/100226/F1/STR/CR_1HZ_AF10016_STR.tif'
 # fpath = '/Users/f/Desktop/100226/F1/STR/STEP_AF10017_STR.tif'
 # fpath = '/Users/f/Desktop/100226/F1/STR/TF_AF10018-STR.tif'
 # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/glu_a2/Steps_pre_AF10_a1014.tif'
 # fpath =  "C:\\Users\\Fernando\\zf\\data\\data_mp\\HUCxiGlu_250625\\f1_ot1_z13_r1_00001.tif"
 # fpath = "C:\\Users\\Fernando\\zf\\data\\data_jose\\glu_a1\\TF_pre_AF10_a1002.tif"
+# fpath = "C:\\Users\\Fernando\\zf\\data\\data_pawel\\Pawel Glutamate framescan\\080725_huc_glu\\S3_c25_1Hz001.tif"
 # ox = KS_pipeline(fpath)
 
+# only if you're using this as a totally independent subprocess
 
 # if __name__ == "__main__":
 #     movie = sys.argv[0]
