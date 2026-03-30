@@ -31,8 +31,8 @@ class KS_pipeline:
         # binary options
         registration = True,
         bleach_correction = True,
-        igor = True,
         mk_plots = False,
+        igor = True,
         debug = False
         ):
             self.fpath = fpath
@@ -228,26 +228,27 @@ class KS_pipeline:
 
 
     # decouple baseline & activity
-    def stim_transitions(self,delta=0.1,post_window=500):
+    def stim_transitions(self,delta=0.01,post_window=500):
         # get approx mean for comparison
         bval = self.stimulus[1:10].mean()
+        # replace val at ~ t=0 (first window), to avoid artifacts
+        self.stimulus[0] = bval
         self.baseline = np.where(abs(self.stimulus-bval) < bval*delta, 0, 1)
         # wx: window after which, even if baseline, signals reflect activity
         # 500 mls in frames (frameRate = framesPerSecond, so half) = 1s/post_window
         wx = int(self.frameRate/(1000/post_window))
         # bis: points where baseline/resting intervals start (skips t=0)
-        bis = np.where(self.baseline-np.roll(self.baseline,1)==0)[0]
+        # if x(t)=rest=0 - x(t-1)=act=1 = -1 => from act to rest
+        bis = np.where(self.baseline-np.roll(self.baseline,1)==-1)[0]
         # discard post activity windows
         for bi in bis:
-            self.baseline[bi:bi+wx] = 0
+            self.baseline[bi:bi+wx] = 1
         # remaining points are baseline/rest indices
         self.baseline_idxs = np.where(self.baseline==0)[0]
         self.activity_idxs = self.baseline.nonzero()[0]
         if self.debug:
             print('in stim_transitions()')
             import pdb; pdb.set_trace()
-        if self.igor:
-            print(f'baseline idxs: {self.baseline_idxs/self.frameRate}')
 
 
     # TODO: why is this before ks-distance?
@@ -303,6 +304,7 @@ class KS_pipeline:
         # threshold line
         th_line = self.alpha * np.arange(1, len(self.ks_peaks)+1)/len(self.ks_peaks)
         # remove where p-values > threshold line
+        # import pdb; pdb.set_trace()
         self.ks_peaks = self.ks_peaks[np.where(self.ks_peaks[:,-1] <= th_line)]
         # check whether there are significative synapses
         if len(self.ks_peaks) == 0:
@@ -513,14 +515,14 @@ class KS_pipeline:
 
 
 # for testing & debugging
-# fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_ca_layering/100226/F1/STR/CR_1HZ_AF10016_STR.tif'
+fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/jose_ca_layering/100226/F1/STR/CR_1HZ_AF10016_STR.tif'
 # fpath = '/Users/f/Desktop/100226/F1/STR/STEP_AF10017_STR.tif'
 # fpath = '/Users/f/Desktop/100226/F1/STR/TF_AF10018-STR.tif'
 # fpath = '/Users/f/Dropbox/_r66y/r66xe/2p_data/glu_a2/Steps_pre_AF10_a1014.tif'
 # fpath =  "C:\\Users\\Fernando\\zf\\data\\data_mp\\HUCxiGlu_250625\\f1_ot1_z13_r1_00001.tif"
 # fpath = "C:\\Users\\Fernando\\zf\\data\\data_jose\\glu_a1\\TF_pre_AF10_a1002.tif"
 # fpath = "C:\\Users\\Fernando\\zf\\data\\data_pawel\\Pawel Glutamate framescan\\080725_huc_glu\\S3_c25_1Hz001.tif"
-# ox = KS_pipeline(fpath)
+ox = KS_pipeline(fpath)
 
 # only if you're using this as a totally independent subprocess
 
