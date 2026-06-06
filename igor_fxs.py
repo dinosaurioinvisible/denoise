@@ -41,8 +41,9 @@ if __name__ == "__main__":
         test_fx(path_to_movie=path_to_movie, debug=deb)
     # here you can call any function
     # import pdb; pdb.set_trace()
-    from ks_method import KS_pipeline
-    x = KS_pipeline(path_to_movie, debug=deb)
+    # from ks_method import KS_pipeline
+    # x = KS_pipeline(path_to_movie, debug=deb)
+    from test import *
 
 
 

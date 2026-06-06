@@ -128,7 +128,7 @@ fit_curve = exp_decay(time,*params)
 movie_corr = movie_int / np.maximum(fit_curve[:,None,None],1e-8)
 
 # ============================================================
-# TODO: ASK LEON: not sure which points he wanted to get(?)
+# TODO: ASK LEON: this is wrong, not sure which points he wanted to get?
 # 4. STIM TRANSITIONS
 # ============================================================
 
