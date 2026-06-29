@@ -1,0 +1,335 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+import seaborn as sns
+from tqdm import tqdm
+
+
+# load csv data as dfs
+rest = pd.read_csv('/Users/f/Desktop/da/combined_rest_reduced_good_3_05.csv')
+loco = pd.read_csv('/Users/f/Desktop/da/combined_reduced_Loco_Opto.csv')
+rest["condition"] = "rest"
+loco["condition"] = "loco"
+
+joint = pd.concat([rest, loco], ignore_index=True)
+
+weights_cols = [f'w_{i}' for i in range(19)]
+pc_cols = [f"PC{i+1}" for i in range(19)]
+n_reps = 1000
+# for checking repeats
+sampled_subsets = set()
+# to save data
+subsets_indexes = []
+pca_exp_vars = []
+pca_mean_diffs = []
+pc1_loads = []
+
+# which PC to consider as cut (& analize weights)
+pcx = 9
+
+nr = 0
+pbar = tqdm(total=n_reps)
+while nr < n_reps:
+    rest_subset = rest.sample(n=len(loco), replace=False)
+    # check if not previously sampled
+    subset_indexes = tuple(sorted(rest_subset.index))
+    if subset_indexes in sampled_subsets:
+        # skip to next iteration
+        continue
+    sampled_subsets.add(subset_indexes)
+    subsets_indexes.append(subset_indexes)
+    
+    # merge, get weights, scale & run PCA
+    joint = pd.concat([rest_subset,loco], ignore_index=True)
+    weights = joint[weights_cols].values
+    scaler = StandardScaler()
+    scaled_weights = scaler.fit_transform(weights)
+    pca = PCA()
+    weights_pca = pca.fit_transform(scaled_weights)
+
+    # append PComponents back to df
+    for i in range(weights_pca.shape[1]):
+        joint[f'PC{i+1}'] = weights_pca[:,i]
+
+    # mean differences between rest & locomotion elements
+    means = joint.groupby("condition")[pc_cols].mean()
+    mean_diffs = means.loc["loco"] - means.loc["rest"]
+    pc1_loadings = pca.components_[pcx].copy()
+
+    # make locomotion always positive & rest negative
+    if mean_diffs[f'PC{pcx+1}'] < 0:
+        weights_pca[:, pcx] *= -1
+        pca.components_[pcx] *= -1
+        mean_diffs[f'PC{pcx+1}'] *= -1
+        pc1_loadings *= -1
+    
+    # save results
+    pca_exp_vars.append(pca.explained_variance_ratio_)
+    pca_mean_diffs.append(mean_diffs)
+    pc1_loads.append(pc1_loadings)
+    nr += 1
+    pbar.update(1)
+
+pbar.close()
+# to pandas  
+pca_results = pd.DataFrame( pca_exp_vars, columns=[f"PC{i}_var" for i in range(19)])
+pca_diffs = pd.DataFrame(pca_mean_diffs,columns=pc_cols)
+pc1_loads = pd.DataFrame(pc1_loads,columns=weights_cols)
+
+# summary tables
+print("Average explained variance:")
+print(pca_results.mean().sort_values(ascending=False))
+
+print("Average loco-rest difference:")
+print(pca_diffs.mean().sort_values(key=abs, ascending=False))
+
+print("Explained variance summary:")
+print(pca_results.describe())
+
+print("Mean difference summary:")
+print(pca_diffs.describe())
+
+print("PC1 loadings summary:")
+print(pc1_loads.describe())
+
+# plot explained variances
+# plt.figure(figsize=(10, 5))
+# sns.boxplot(data=pca_results)
+# plt.xticks(rotation=45)
+# plt.ylabel("Explained variance ratio")
+# plt.xlabel("Principal component")
+# plt.title("Explained variance across balanced PCA repetitions")
+# plt.tight_layout()
+# plt.show()
+    
+# plot cumulative pca results (var exp)
+n1 = 7
+n2 = pcx+1
+cum_pca_results = pca_results.cumsum(axis=1)
+mean_cum = cum_pca_results.mean(axis=0)
+std_cum = cum_pca_results.std(axis=0)
+x = np.arange(1, len(mean_cum) + 1)
+plt.figure(figsize=(8, 5))
+plt.plot(x, mean_cum, "o-", label="Mean cumulative variance")
+plt.fill_between(x,
+    mean_cum - std_cum,
+    mean_cum + std_cum,
+    alpha=0.2,
+    label="±1 SD")
+plt.axhline(mean_cum.iloc[n1], linestyle="--", color='yellow', label=f'PC0-PC{n1}')
+plt.axhline(mean_cum.iloc[n2], linestyle="--", color='orange', label=f'PC0-PC{n2}')
+plt.axhline(0.99, linestyle="--", color='red', label='0.99')
+plt.xlabel("Number of PCs")
+plt.ylabel("Cumulative explained variance")
+plt.title("Cumulative explained variance across repetitions")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# locomotion vs rest, for each PC
+# plt.figure(figsize=(10, 5))
+# sns.boxplot(data=pca_diffs)
+# plt.axhline(0, linestyle="--")
+# plt.xticks(rotation=45)
+# plt.ylabel("Mean differences: loco - rest")
+# plt.xlabel("Principal component")
+# plt.title("Locomotion-rest mean difference across PCA repetitions")
+# plt.tight_layout()
+# plt.show()
+
+# prob distribution of PCx mean diffs
+# plt.figure(figsize=(7, 5))
+# sns.histplot(abs(pca_diffs[f'PC{pcx+1}']), kde=True)
+# # plt.axvline(0, linestyle="--")
+# plt.xlabel(f"PC{pcx+1} mean differences: loco - rest")
+# plt.ylabel("Count")
+# plt.title(f'Distribution of PC{pcx} across repetitions')
+# plt.tight_layout()
+# plt.show()
+
+# mean values for loadings of PCx
+mean_pc1_loadings = pc1_loads.mean(axis=0)
+plt.figure(figsize=(10, 5))
+mean_pc1_loadings.plot(kind="bar")
+plt.axhline(0, linestyle="--")
+plt.ylabel(f'Mean PC{pcx+1} loading')
+plt.xlabel("Weight")
+plt.title(f'Mean PC{pcx+1} loadings across balanced PCA repetitions')
+plt.tight_layout()
+plt.show()
+
+# explained variance for each PC
+for i, ratio in enumerate(pca.explained_variance_ratio_, start=1):
+    print(f"PC{i}: {ratio:.4f} ({ratio * 100:.2f}%)")
+    
+exp_variance = pca.explained_variance_ratio_
+
+# loading values for all
+loadings = pd.DataFrame(pca.components_, index=pc_cols, columns=weights_cols)
+lxs = loadings.to_numpy()
+# quick check – this should be 1 for each PC and to n=19 if just .sum()
+# (lxs**2).sum(axis=1)
+
+# weighted contribution of each loading, up to PCnx
+for nx in range(1,11):
+    wls = ((lxs[:nx]**2) * exp_variance[:nx, np.newaxis]).sum(axis=0)
+    print(f'\nn={nx} >> {wls.sum()*100:.2f}%')
+    # taking sum of wls as 100%
+    rel_wls = wls / wls.sum()
+    # for ei,x in enumerate(rel_wls, start=1):
+    #     print(f'w{ei}: {x:.2f}%')
+    # same, nicer:
+    for weight, x in zip(weights_cols, rel_wls):
+        print(f'{weight}: {x * 100:.2f}%')
+
+# pca.components_ shape: (n_PCs, n_weights)
+# Rows = PCs, columns = weights
+
+weighted_loadings = (
+    pca.components_ ** 2
+    * pca.explained_variance_ratio_[:, np.newaxis]
+)
+
+# Convert to overall percentages
+weighted_loadings_percent = weighted_loadings * 100
+
+weighted_loadings_df = pd.DataFrame(
+    weighted_loadings_percent.T,
+    index=weights_cols,
+    columns=pc_cols
+)
+
+plt.figure(figsize=(14, 8))
+
+sns.heatmap(
+    weighted_loadings_df,
+    cmap="viridis",
+    annot=True,
+    fmt=".2f",
+    cbar_kws={
+        "label": "Contribution to total variance (%)"
+    }
+)
+
+plt.xlabel("Principal component")
+plt.ylabel("Weight")
+plt.title("Variance-weighted contribution of each weight to each PC")
+plt.tight_layout()
+plt.show()
+    
+    
+# convert to cumulative percentages
+# Rows of pca.components_: PCs
+# Columns of pca.components_: weights
+weighted_per_pc = (
+    pca.components_ ** 2
+    * pca.explained_variance_ratio_[:, np.newaxis]
+)
+
+# Cumulative sum across PCs, then transpose:
+# rows = weights, columns = cumulative PC cutoff
+cumulative_by_weight = np.cumsum(weighted_per_pc, axis=0).T
+
+cumulative_by_weight_df = pd.DataFrame(
+    cumulative_by_weight * 100,
+    index=weights_cols,
+    columns=[f"PC1–PC{i}" for i in range(1, len(pc_cols) + 1)]
+)
+
+plt.figure(figsize=(16, 8))
+
+sns.heatmap(
+    cumulative_by_weight_df,
+    cmap="viridis",
+    annot=True,
+    fmt=".2f",
+    cbar_kws={"label": "Cumulative contribution to total variance (%)"}
+)
+
+plt.xlabel("PCs included")
+plt.ylabel("Weight")
+plt.title("Cumulative variance-weighted contribution of each weight")
+plt.tight_layout()
+plt.show()
+
+
+# combined + explained variance
+# --- Build cumulative-by-weight matrix ---
+weighted_per_pc = (
+    pca.components_ ** 2
+    * pca.explained_variance_ratio_[:, np.newaxis]
+)
+
+# cumulative contribution across PCs
+cumulative_by_weight = np.cumsum(weighted_per_pc, axis=0).T
+
+cumulative_by_weight_df = pd.DataFrame(
+    cumulative_by_weight * 100,
+    index=weights_cols,
+    columns=[f"PC1–PC{i}" for i in range(1, len(pc_cols) + 1)]
+)
+
+# cumulative explained variance
+cum_exp_var = np.cumsum(pca.explained_variance_ratio_) * 100
+
+n_pcs = len(pc_cols)
+
+# x positions = centers of heatmap cells
+x = np.arange(n_pcs) + 0.5
+
+# --- Figure layout ---
+fig = plt.figure(figsize=(16, 10))
+gs = fig.add_gridspec(
+    nrows=2,
+    ncols=2,
+    width_ratios=[40, 2],     # main plot area + separate colorbar area
+    height_ratios=[1.2, 4],
+    hspace=0.08,
+    wspace=0.15
+)
+
+ax_line = fig.add_subplot(gs[0, 0])
+ax_heat = fig.add_subplot(gs[1, 0], sharex=ax_line)
+cax = fig.add_subplot(gs[1, 1])   # dedicated colorbar axis
+
+# --- Top: cumulative explained variance ---
+ax_line.plot(x, cum_exp_var, marker="o")
+ax_line.set_xlim(0, n_pcs)
+ax_line.set_ylim(0, 105)
+ax_line.set_ylabel("Cumulative explained variance (%)")
+ax_line.set_title("Cumulative explained variance and cumulative weight contributions")
+ax_line.grid(True, alpha=0.3)
+
+# optional reference lines
+for y in [80, 90, 95, 99]:
+    ax_line.axhline(y, linestyle="--", alpha=0.4)
+
+# hide top x tick labels
+ax_line.tick_params(axis="x", labelbottom=False)
+
+# --- Bottom: heatmap ---
+sns.heatmap(
+    cumulative_by_weight_df,
+    ax=ax_heat,
+    cbar=True,
+    cbar_ax=cax,   # IMPORTANT: separate colorbar axis
+    cmap="viridis",
+    annot=True,
+    fmt=".2f",
+    linewidths=0.5,
+    linecolor="white",
+    cbar_kws={"label": "Cumulative contribution to total variance (%)"}
+)
+
+ax_heat.set_xlabel("PCs included")
+ax_heat.set_ylabel("Weight")
+ax_heat.set_xticks(np.arange(n_pcs) + 0.5)
+ax_heat.set_xticklabels(cumulative_by_weight_df.columns, rotation=45, ha="right")
+
+plt.show()

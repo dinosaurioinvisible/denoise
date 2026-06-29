@@ -12,8 +12,8 @@ from tqdm import tqdm
 
 
 # load csv data as dfs
-rest = pd.read_csv('/Users/f/Desktop/da/combined_rest_reduced_good_3_05.csv')
-loco = pd.read_csv('/Users/f/Desktop/da/combined_reduced_Loco_Opto.csv')
+rest = pd.read_csv('/Users/f/Desktop/data antonio/combined_rest_reduced_good_3_05.csv')
+loco = pd.read_csv('/Users/f/Desktop/data antonio/combined_reduced_Loco_Opto.csv')
 rest["condition"] = "rest"
 loco["condition"] = "loco"
 
@@ -21,7 +21,7 @@ joint = pd.concat([rest, loco], ignore_index=True)
 
 weights_cols = [f'w_{i}' for i in range(19)]
 pc_cols = [f"PC{i+1}" for i in range(19)]
-n_reps = 1000
+n_reps = 10000
 # for checking repeats
 sampled_subsets = set()
 # to save data
@@ -29,9 +29,6 @@ subsets_indexes = []
 pca_exp_vars = []
 pca_mean_diffs = []
 pc1_loads = []
-
-# which PC to consider as cut (& analize weights)
-pcx = 9
 
 nr = 0
 pbar = tqdm(total=n_reps)
@@ -60,13 +57,13 @@ while nr < n_reps:
     # mean differences between rest & locomotion elements
     means = joint.groupby("condition")[pc_cols].mean()
     mean_diffs = means.loc["loco"] - means.loc["rest"]
-    pc1_loadings = pca.components_[pcx].copy()
+    pc1_loadings = pca.components_[0].copy()
 
     # make locomotion always positive & rest negative
-    if mean_diffs[f'PC{pcx+1}'] < 0:
-        weights_pca[:, pcx] *= -1
-        pca.components_[pcx] *= -1
-        mean_diffs[f'PC{pcx+1}'] *= -1
+    if mean_diffs["PC1"] < 0:
+        weights_pca[:, 0] *= -1
+        pca.components_[0] *= -1
+        mean_diffs["PC1"] *= -1
         pc1_loadings *= -1
     
     # save results
@@ -99,18 +96,17 @@ print("PC1 loadings summary:")
 print(pc1_loads.describe())
 
 # plot explained variances
-# plt.figure(figsize=(10, 5))
-# sns.boxplot(data=pca_results)
-# plt.xticks(rotation=45)
-# plt.ylabel("Explained variance ratio")
-# plt.xlabel("Principal component")
-# plt.title("Explained variance across balanced PCA repetitions")
-# plt.tight_layout()
-# plt.show()
+plt.figure(figsize=(10, 5))
+sns.boxplot(data=pca_results)
+plt.xticks(rotation=45)
+plt.ylabel("Explained variance ratio")
+plt.xlabel("Principal component")
+plt.title("Explained variance across balanced PCA repetitions")
+plt.tight_layout()
+plt.show()
     
 # plot cumulative pca results (var exp)
-n1 = 7
-n2 = pcx+1
+n = 7
 cum_pca_results = pca_results.cumsum(axis=1)
 mean_cum = cum_pca_results.mean(axis=0)
 std_cum = cum_pca_results.std(axis=0)
@@ -122,8 +118,7 @@ plt.fill_between(x,
     mean_cum + std_cum,
     alpha=0.2,
     label="±1 SD")
-plt.axhline(mean_cum.iloc[n1], linestyle="--", color='yellow', label=f'PC0-PC{n1}')
-plt.axhline(mean_cum.iloc[n2], linestyle="--", color='orange', label=f'PC0-PC{n2}')
+plt.axhline(mean_cum.iloc[n], linestyle="--", color='orange', label=f'PC1-PC{n}')
 plt.axhline(0.99, linestyle="--", color='red', label='0.99')
 plt.xlabel("Number of PCs")
 plt.ylabel("Cumulative explained variance")
@@ -133,95 +128,49 @@ plt.tight_layout()
 plt.show()
 
 # locomotion vs rest, for each PC
-# plt.figure(figsize=(10, 5))
-# sns.boxplot(data=pca_diffs)
-# plt.axhline(0, linestyle="--")
-# plt.xticks(rotation=45)
-# plt.ylabel("Mean differences: loco - rest")
-# plt.xlabel("Principal component")
-# plt.title("Locomotion-rest mean difference across PCA repetitions")
-# plt.tight_layout()
-# plt.show()
+plt.figure(figsize=(10, 5))
+sns.boxplot(data=pca_diffs)
+plt.axhline(0, linestyle="--")
+plt.xticks(rotation=45)
+plt.ylabel("Mean differences: loco - rest")
+plt.xlabel("Principal component")
+plt.title("Locomotion-rest mean difference across PCA repetitions")
+plt.tight_layout()
+plt.show()
 
-# prob distribution of PCx mean diffs
-# plt.figure(figsize=(7, 5))
-# sns.histplot(abs(pca_diffs[f'PC{pcx+1}']), kde=True)
-# # plt.axvline(0, linestyle="--")
-# plt.xlabel(f"PC{pcx+1} mean differences: loco - rest")
-# plt.ylabel("Count")
-# plt.title(f'Distribution of PC{pcx} across repetitions')
-# plt.tight_layout()
-# plt.show()
+# prob distribution of PC1 mean diffs
+plt.figure(figsize=(7, 5))
+sns.histplot(abs(pca_diffs["PC1"]), kde=True)
+# plt.axvline(0, linestyle="--")
+plt.xlabel("PC1 mean differences: loco - rest")
+plt.ylabel("Count")
+plt.title("Distribution of PC1 across repetitions")
+plt.tight_layout()
+plt.show()
 
-# mean values for loadings of PCx
+# mean values for loadings of PC1
 mean_pc1_loadings = pc1_loads.mean(axis=0)
 plt.figure(figsize=(10, 5))
 mean_pc1_loadings.plot(kind="bar")
 plt.axhline(0, linestyle="--")
-plt.ylabel(f'Mean PC{pcx+1} loading')
+plt.ylabel("Mean PC1 loading")
 plt.xlabel("Weight")
-plt.title(f'Mean PC{pcx+1} loadings across balanced PCA repetitions')
+plt.title("Mean PC1 loadings across balanced PCA repetitions")
 plt.tight_layout()
 plt.show()
 
-# explained variance for each PC
-for i, ratio in enumerate(pca.explained_variance_ratio_, start=1):
-    print(f"PC{i}: {ratio:.4f} ({ratio * 100:.2f}%)")
-    
-exp_variance = pca.explained_variance_ratio_
 
-# loading values for all
-loadings = pd.DataFrame(pca.components_, index=pc_cols, columns=weights_cols)
-lxs = loadings.to_numpy()
-# quick check – this should be 1 for each PC and to n=19 if just .sum()
-# (lxs**2).sum(axis=1)
 
-# weighted contribution of each loading, up to PCnx
-for nx in range(1,11):
-    wls = ((lxs[:nx]**2) * exp_variance[:nx, np.newaxis]).sum(axis=0)
-    print(f'\nn={nx} >> {wls.sum()*100:.2f}%')
-    # taking sum of wls as 100%
-    rel_wls = wls / wls.sum()
-    # for ei,x in enumerate(rel_wls, start=1):
-    #     print(f'w{ei}: {x:.2f}%')
-    # same, nicer:
-    for weight, x in zip(weights_cols, rel_wls):
-        print(f'{weight}: {x * 100:.2f}%')
 
-# pca.components_ shape: (n_PCs, n_weights)
-# Rows = PCs, columns = weights
 
-weighted_loadings = (
-    pca.components_ ** 2
-    * pca.explained_variance_ratio_[:, np.newaxis]
-)
 
-# Convert to percentages
-weighted_loadings_percent = weighted_loadings * 100
 
-weighted_loadings_df = pd.DataFrame(
-    weighted_loadings_percent.T,
-    index=weights_cols,
-    columns=pc_cols
-)
 
-plt.figure(figsize=(14, 8))
 
-sns.heatmap(
-    weighted_loadings_df,
-    cmap="viridis",
-    annot=True,
-    fmt=".2f",
-    cbar_kws={
-        "label": "Contribution to total variance (%)"
-    }
-)
 
-plt.xlabel("Principal component")
-plt.ylabel("Weight")
-plt.title("Variance-weighted contribution of each weight to each PC")
-plt.tight_layout()
-plt.show()
+
+
+
     
     
     
